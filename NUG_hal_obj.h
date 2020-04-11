@@ -38,19 +38,37 @@
 //! (C) Copyright 2012, Texas Instruments, Inc.
 
 
-// drivers
-#include "F2806x_device.h"
-#include "pwmdac.h"
-#include "drv8301.h"
+// **************************************************************************
+// the includes
 
+// systems
 
 // modules
+#include "user_math.h"
+#include "pwmdac.h"
 #include "offset.h"
-//#include "usDelay.h"
 
+// drivers
+#include "adc.h"
+#include "clk.h"
+#include "cpu.h"
+#include "flash.h"
+#include "gpio.h"
+#include "osc.h"
+#include "pie.h"
+#include "pll.h"
+#include "pwm.h"
+#include "pwr.h"
+#include "qep.h"
+#include "sci.h"
+#include "spi.h"
+#include "timer.h"
+#include "wdog.h"
+
+#include "drv8301.h"
 
 // platforms
-//#include "NUG_user.h"
+
 
 
 //!

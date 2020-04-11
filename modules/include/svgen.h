@@ -43,7 +43,6 @@
 // the includes
 
 #include "types.h"
-#include "IQmathLib.h"
 #include "user_math.h"
 
 //!

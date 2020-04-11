@@ -41,11 +41,6 @@
 // **************************************************************************
 // the includes
 
-// modules
-#include "user_module.h"
-
-
-// platforms
 #include "ctrl_obj.h"
 #include "userParams.h"
 

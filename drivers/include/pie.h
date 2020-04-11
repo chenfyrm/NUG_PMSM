@@ -45,8 +45,8 @@
 
 
 
-//#include "sw/drivers/adc/src/32b/f28x/f2806x/adc.h"
-//#include "sw/drivers/pwm/src/32b/f28x/f2806x/pwm.h"
+#include "adc.h"
+#include "pwm.h"
 
 
 //!

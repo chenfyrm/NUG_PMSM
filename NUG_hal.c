@@ -38,13 +38,9 @@
 // **************************************************************************
 // the includes
 
-// drivers
-
-// modules
-
-
-// platforms
+#include "usDelay.h"
 #include "NUG_hal.h"
+#include "ctrl_obj.h"
 #include "NUG_user.h"
 
 

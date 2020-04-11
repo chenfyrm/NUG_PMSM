@@ -41,7 +41,7 @@
 // **************************************************************************
 // the includes
 
-#include <math.h>
+//#include <math.h>
 
 
 // drivers
@@ -52,9 +52,9 @@
 
 
 // platforms
-#include "NUG_hal.h"
+//#include "NUG_hal.h"
 #include "NUG_ctrl.h"
-#include "NUG_user.h"
+//#include "NUG_user.h"
 
 //#include "NUG_project.h"
 

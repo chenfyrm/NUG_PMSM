@@ -43,13 +43,12 @@
 // the includes
 
 // modules
-#include "user_module.h"
+
 
 // platforms
 #include "NUG_hal_obj.h"
-#include "ctrl_obj.h"
-#include "userParams.h"
 #include "NUG_user.h"
+
 
 //!
 //!

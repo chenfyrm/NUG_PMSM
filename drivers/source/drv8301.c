@@ -38,11 +38,6 @@
 // **************************************************************************
 // the includes
 
-#include <math.h>
-
-
-// drivers
-#include "F2806x_device.h"
 
 #include "drv8301.h"
 

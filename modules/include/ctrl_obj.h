@@ -41,24 +41,17 @@
 // **************************************************************************
 // the includes
 
-#include "types.h"
-#include "IQmathLib.h"
-
 #include "ctrl_states.h"
 #include "clarke.h"
-#include "park.h"
-#include "ipark.h"
-#include "motor.h"
-#include "offset.h"
-#include "pid.h"
 #include "est.h"
+#include "park.h"
+#include "pid.h"
+#include "ipark.h"
 #include "svgen.h"
 #include "traj.h"
+#include "motor.h"
 
-#include "vs_freq.h"
-#include "angle_gen.h"
 
-#include "datalog.h"
 
 //!
 //!

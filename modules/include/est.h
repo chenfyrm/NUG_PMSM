@@ -10,6 +10,9 @@
 
 // **************************************************************************
 // the includes
+
+#include "types.h"
+#include "user_math.h"
 #include "est_states.h"
 
 // modules

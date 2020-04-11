@@ -42,11 +42,9 @@
 // **************************************************************************
 // the includes
 
+#include "pwm.h"
 
 
-//#include "sw/drivers/cpu/src/32b/f28x/f2806x/cpu.h"
-
-//#include "sw/drivers/pwm/src/32b/f28x/f2806x/pwm.h"
 
 
 //!

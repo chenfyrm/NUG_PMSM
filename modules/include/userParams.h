@@ -42,15 +42,14 @@
 // the includes
 
 // modules
-#include "types.h"
 #include "motor.h"
-
 #include "ctrl_states.h"
-
 #include "est_states.h"
 #include "est_Flux_states.h"
 #include "est_Ls_states.h"
 #include "est_Rs_states.h"
+
+
 
 
 

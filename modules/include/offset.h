@@ -43,10 +43,9 @@
 // the module includes
 
 // modules
-#include "types.h"
-#include "IQmathLib.h"
-#include "user_math.h"
+
 #include "filter_fo.h"
+
 
 
 //!

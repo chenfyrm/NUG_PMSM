@@ -44,7 +44,7 @@
 
 
 // modules
-#include "user_module.h"
+#include "svgen_current.h"
 
 // platforms
 #include "NUG_hal_obj.h"

@@ -43,7 +43,7 @@
 
 
 
-//#include "sw/drivers/cpu/src/32b/f28x/f2806x/cpu.h"
+#include "cpu.h"
 
 
 //!
