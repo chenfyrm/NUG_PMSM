@@ -1787,10 +1787,14 @@ void HAL_setupCap(HAL_Handle handle)
 		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
 		CAP_setCapContinuous(obj->capHandle[i]);
 		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Disable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Disable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Disable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Disable);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);

@@ -164,10 +164,15 @@ float_t hallAngle = 0.0;
 
 uint32_t HallACap1 = 0;
 uint32_t HallACap2 = 0;
+uint32_t HallACap3 = 0;
+uint32_t HallACap4 = 0;
 uint32_t HallBCap1 = 0;
 uint32_t HallBCap2 = 0;
 uint32_t HallCCap1 = 0;
 uint32_t HallCCap2 = 0;
+
+uint32_t halfPrdPos = 0;
+uint32_t halfPrdNeg = 0;
 
 void SCIB_TX_PRE(void);
 void SCIB_TX(void);
@@ -685,10 +690,15 @@ interrupt void mainISR(void) {
 
 	HallACap1 = CAP_getCap1(halHandle->capHandle[0]);
 	HallACap2 = CAP_getCap2(halHandle->capHandle[0]);
+	HallACap3 = CAP_getCap3(halHandle->capHandle[0]);
+	HallACap4 = CAP_getCap4(halHandle->capHandle[0]);
 	HallBCap1 = CAP_getCap1(halHandle->capHandle[1]);
 	HallBCap2 = CAP_getCap2(halHandle->capHandle[1]);
 	HallCCap1 = CAP_getCap1(halHandle->capHandle[2]);
 	HallCCap2 = CAP_getCap2(halHandle->capHandle[2]);
+
+	halfPrdPos = HallACap2-HallACap1;
+	halfPrdNeg = HallACap4-HallACap3;
 
 	estAngle = _IQtoF(EST_getAngle_pu(ctrlHandle->estHandle))*360.0;
 
