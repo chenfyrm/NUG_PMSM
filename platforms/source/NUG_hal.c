@@ -38,9 +38,13 @@
 // **************************************************************************
 // the includes
 
+// drivers
+
+// modules
 #include "usDelay.h"
+
+// platforms
 #include "NUG_hal.h"
-#include "ctrl_obj.h"
 #include "NUG_user.h"
 
 
@@ -642,20 +646,6 @@ HAL_Handle HAL_init(void *pMemory,const size_t numBytes)
   obj->gpioHandle = GPIO_init((void *)GPIO_BASE_ADDR,sizeof(GPIO_Obj));
 
 
-  // initialize the current offset estimator handles
-  for(cnt=0;cnt<USER_NUM_CURRENT_SENSORS;cnt++)
-    {
-      obj->offsetHandle_I[cnt] = OFFSET_init(&obj->offset_I[cnt],sizeof(obj->offset_I[cnt]));
-    }
-
-
-  // initialize the voltage offset estimator handles
-  for(cnt=0;cnt<USER_NUM_VOLTAGE_SENSORS;cnt++)
-    {
-      obj->offsetHandle_V[cnt] = OFFSET_init(&obj->offset_V[cnt],sizeof(obj->offset_V[cnt]));
-    }
-
-
   // initialize the oscillator handle
   obj->oscHandle = OSC_init((void *)OSC_BASE_ADDR,sizeof(OSC_Obj));
 
@@ -672,8 +662,16 @@ HAL_Handle HAL_init(void *pMemory,const size_t numBytes)
   obj->spiAHandle = SPI_init((void *)SPIA_BASE_ADDR,sizeof(SPI_Obj));
   obj->spiBHandle = SPI_init((void *)SPIB_BASE_ADDR,sizeof(SPI_Obj));
 
-  //
+  // initialize the SCI handle
   obj->sciBHandle = SCI_init((void *)SCIB_BASE_ADDR,sizeof(SCI_Obj));
+
+  // initialize the QEP handle
+  obj->qepHandle[0] = QEP_init((void*)QEP1_BASE_ADDR,sizeof(QEP_Obj));
+
+  // initialize the CAP handles
+  obj->capHandle[0] = CAP_init((void*)CAP1_BASE_ADDR,sizeof(CAP_Obj));
+  obj->capHandle[1] = CAP_init((void*)CAP2_BASE_ADDR,sizeof(CAP_Obj));
+  obj->capHandle[2] = CAP_init((void*)CAP3_BASE_ADDR,sizeof(CAP_Obj));
 
   // initialize PWM handles
   obj->pwmHandle[0] = PWM_init((void *)PWM_ePWM1_BASE_ADDR,sizeof(PWM_Obj));
@@ -700,11 +698,25 @@ HAL_Handle HAL_init(void *pMemory,const size_t numBytes)
   // initialize drv8301 interface
   obj->drv8301Handle = DRV8301_init(&obj->drv8301,sizeof(obj->drv8301));
 
+  // initialize the current offset estimator handles
+  for(cnt=0;cnt<USER_NUM_CURRENT_SENSORS;cnt++)
+    {
+      obj->offsetHandle_I[cnt] = OFFSET_init(&obj->offset_I[cnt],sizeof(obj->offset_I[cnt]));
+    }
 
-#ifdef QEP
-  // initialize QEP driver
-  obj->qepHandle[0] = QEP_init((void*)QEP1_BASE_ADDR,sizeof(QEP_Obj));
-#endif
+
+  // initialize the voltage offset estimator handles
+  for(cnt=0;cnt<USER_NUM_VOLTAGE_SENSORS;cnt++)
+    {
+      obj->offsetHandle_V[cnt] = OFFSET_init(&obj->offset_V[cnt],sizeof(obj->offset_V[cnt]));
+    }
+
+  // initialize the DC link current offset estimator handle
+  obj->offsetHandle_IDcLk = OFFSET_init(&obj->offset_IDcLk,sizeof(OFFSET_Obj));
+
+  // initialize the chopper current offset estimator handle
+  obj->offsetHandle_IChop = OFFSET_init(&obj->offset_IChop,sizeof(OFFSET_Obj));
+
 
   return(handle);
 } // end of HAL_init() function
@@ -735,6 +747,14 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
       HAL_setOffsetInitCond(handle,HAL_SensorType_Voltage,cnt,_IQ(0.0));
       HAL_setOffsetValue(handle,HAL_SensorType_Voltage,cnt,_IQ(0.0));
     }
+
+  OFFSET_setBeta(obj->offsetHandle_IDcLk,beta_lp_pu);
+  OFFSET_setInitCond(obj->offsetHandle_IDcLk,_IQ(0.0));
+  OFFSET_setOffset(obj->offsetHandle_IDcLk,_IQ(0.0));
+
+  OFFSET_setBeta(obj->offsetHandle_IChop,beta_lp_pu);
+  OFFSET_setInitCond(obj->offsetHandle_IChop,_IQ(0.0));
+  OFFSET_setOffset(obj->offsetHandle_IChop,_IQ(0.0));
 
 
   // disable global interrupts
@@ -787,10 +807,8 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
                 pUserParams->pwmPeriod_usec,
                 USER_NUM_PWM_TICKS_PER_ISR_TICK);
 
-#ifdef QEP
   // setup the QEP
   HAL_setupQEP(handle,HAL_Qep_QEP1);
-#endif
 
 
   // setup the spiA
@@ -803,9 +821,12 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
   // setup the sciB
   HAL_setupSciB(handle);
 
+  // setup the cap
+  HAL_setupCap(handle);
 
-  // setup the PWM DACs
-  HAL_setupPwmDacs(handle);
+
+//  // setup the PWM DACs
+//  HAL_setupPwmDacs(handle);
 
 
   // setup the timers
@@ -913,49 +934,71 @@ void HAL_setupAdcs(HAL_Handle handle)
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_0,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_0,ADC_SocSampleDelay_9_cycles);
 
-  // EXT IA-FB
+  // EXT IA-FB ADCA6
   // Duplicate conversion due to ADC Initial Conversion bug (SPRZ342)
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_1,ADC_SocChanNumber_A6);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_1,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_1,ADC_SocSampleDelay_9_cycles);
 
-  // EXT IB-FB
+  // EXT IB-FB ADCA4
 //  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_2,ADC_SocChanNumber_B6);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_2,ADC_SocChanNumber_A4);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_2,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_2,ADC_SocSampleDelay_9_cycles);
 
-  // EXT IC-FB
+  // EXT IC-FB ADCA0
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_3,ADC_SocChanNumber_A0);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_3,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_3,ADC_SocSampleDelay_9_cycles);
 
-  // ADC-Vhb1
+  // ADC-Vhb1 ADCB7
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_4,ADC_SocChanNumber_B7);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_4,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_4,ADC_SocSampleDelay_9_cycles);
 
-  // ADC-Vhb2
+  // ADC-Vhb2 ADCB4
 //  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_5,ADC_SocChanNumber_A7);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_5,ADC_SocChanNumber_B4);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_5,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_5,ADC_SocSampleDelay_9_cycles);
 
-  // ADC-Vhb3
+  // ADC-Vhb3 ADCA1
 //  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_6,ADC_SocChanNumber_B4);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_6,ADC_SocChanNumber_A1);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_6,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_6,ADC_SocSampleDelay_9_cycles);
 
-  // VDCBUS
+  // VDCBUS ADCA2
 //  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_7,ADC_SocChanNumber_B2);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_7,ADC_SocChanNumber_A2);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_7,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_7,ADC_SocSampleDelay_9_cycles);
 
   //IDCBUS ADCB1
+  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_8,ADC_SocChanNumber_B1);
+  ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_8,ADC_SocTrigSrc_EPWM1_ADCSOCA);
+  ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_8,ADC_SocSampleDelay_9_cycles);
 
   //Ichop ADCA7
+  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_9,ADC_SocChanNumber_A7);
+  ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_9,ADC_SocTrigSrc_EPWM1_ADCSOCA);
+  ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_9,ADC_SocSampleDelay_9_cycles);
+
+  //Tchop ADCA3
+  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_10,ADC_SocChanNumber_A3);
+  ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_10,ADC_SocTrigSrc_EPWM1_ADCSOCA);
+  ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_10,ADC_SocSampleDelay_9_cycles);
+
+  //Tmotor ADCB2
+  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_11,ADC_SocChanNumber_B2);
+  ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_11,ADC_SocTrigSrc_EPWM1_ADCSOCA);
+  ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_11,ADC_SocSampleDelay_9_cycles);
+
+  //Tboard ADCB0
+  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_12,ADC_SocChanNumber_B0);
+  ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_12,ADC_SocTrigSrc_EPWM1_ADCSOCA);
+  ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_12,ADC_SocSampleDelay_9_cycles);
+
 
   return;
 } // end of HAL_setupAdcs() function
@@ -1121,11 +1164,11 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setMode(obj->gpioHandle,GPIO_Number_19,GPIO_19_Mode_SPISTEA_NOT);
 //  GPIO_setPullup(obj->gpioHandle,GPIO_Number_19, GPIO_Pullup_Enable);
 
-  // EQEPA
+  // EQEP1A
 //  GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_GeneralPurpose);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_EQEP1A);
 
-  // EQEPB
+  // EQEP1B
 //  GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_GeneralPurpose);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_EQEP1B);
 
@@ -1325,44 +1368,54 @@ void HAL_setupPeripheralClks(HAL_Handle handle)
 {
   HAL_Obj *obj = (HAL_Obj *)handle;
 
+  //PCLKCR0
+  CLK_disableHrPwmClock(obj->clkHandle);
+
+  CLK_disableLinAClock(obj->clkHandle);
 
   CLK_enableAdcClock(obj->clkHandle);
 
+  CLK_enableI2cClock(obj->clkHandle);
+
+  CLK_enableSpiaClock(obj->clkHandle);
+  CLK_disableSpibClock(obj->clkHandle);
+
+  CLK_disableSciaClock(obj->clkHandle);
+  CLK_enableScibClock(obj->clkHandle);
+
+  //McBsp
+
+  CLK_disableEcanaClock(obj->clkHandle);
+
+  //PCLKCR1
+  CLK_enablePwmClock(obj->clkHandle,PWM_Number_1);
+  CLK_enablePwmClock(obj->clkHandle,PWM_Number_2);
+  CLK_enablePwmClock(obj->clkHandle,PWM_Number_3);
+  CLK_disablePwmClock(obj->clkHandle,PWM_Number_4);
+  CLK_disablePwmClock(obj->clkHandle,PWM_Number_5);
+  CLK_disablePwmClock(obj->clkHandle,PWM_Number_6);
+  CLK_disablePwmClock(obj->clkHandle,PWM_Number_7);
+  CLK_disablePwmClock(obj->clkHandle,PWM_Number_8);
+
+  CLK_enableTbClockSync(obj->clkHandle);
+
+  CLK_enableEcap1Clock(obj->clkHandle);
+  CLK_enableEcap2Clock(obj->clkHandle);
+  CLK_enableEcap3Clock(obj->clkHandle);
+
+  CLK_enableEqep1Clock(obj->clkHandle);
+  CLK_enableEqep2Clock(obj->clkHandle);
+
+
+  //PCLKCR2
+
+
+  //PCLKCR3
   CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_1);
   CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_2);
   CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_3);
 
-  CLK_enableEcap1Clock(obj->clkHandle);
-
-  CLK_disableEcanaClock(obj->clkHandle);
-
-#ifdef QEP
-  CLK_enableEqep1Clock(obj->clkHandle);
-  CLK_enableEqep2Clock(obj->clkHandle);
-#endif
-
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_1);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_2);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_3);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_4);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_5);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_6);
-  CLK_enablePwmClock(obj->clkHandle,PWM_Number_7);
-
-  CLK_disableHrPwmClock(obj->clkHandle);
-
-  CLK_disableI2cClock(obj->clkHandle);
-
-  CLK_disableLinAClock(obj->clkHandle);
-
   CLK_disableClaClock(obj->clkHandle);
-
-  CLK_enableScibClock(obj->clkHandle);
-
-  CLK_enableSpiaClock(obj->clkHandle);
-  CLK_enableSpibClock(obj->clkHandle);
-  
-  CLK_enableTbClockSync(obj->clkHandle);
 
   return;
 } // end of HAL_setupPeripheralClks() function
@@ -1717,77 +1770,133 @@ void HAL_setupSciB(HAL_Handle handle)
 	return;
 }
 
-void HAL_setupPwmDacs(HAL_Handle handle)
+void HAL_setupCap(HAL_Handle handle)
 {
-  HAL_Obj *obj = (HAL_Obj *)handle;
-  uint16_t halfPeriod_cycles = 512;       // 3000->10kHz, 1500->20kHz, 1000-> 30kHz, 500->60kHz
-  uint_least8_t    cnt;
+	HAL_Obj *obj = (HAL_Obj*)handle;
+	uint16_t i;
+//	uint16_t j;
 
+	for(i=0;i<3;i++)
+	{
+		CAP_disableInt(obj->capHandle[i],CAP_Int_Type_All);
+		CAP_clearInt(obj->capHandle[i],CAP_Int_Type_All);
+		CAP_disableCaptureLoad(obj->capHandle[i]);
+		CAP_disableTimestampCounter(obj->capHandle[i]);
 
-  for(cnt=0;cnt<3;cnt++)
-  {
-    // initialize the Time-Base Control Register (TBCTL)
-    PWMDAC_setCounterMode(obj->pwmDacHandle[cnt],PWM_CounterMode_UpDown);
-    PWMDAC_disableCounterLoad(obj->pwmDacHandle[cnt]);
-    PWMDAC_setPeriodLoad(obj->pwmDacHandle[cnt],PWM_PeriodLoad_Immediate);
-    PWMDAC_setSyncMode(obj->pwmDacHandle[cnt],PWM_SyncMode_EPWMxSYNC);
-    PWMDAC_setHighSpeedClkDiv(obj->pwmDacHandle[cnt],PWM_HspClkDiv_by_1);
-    PWMDAC_setClkDiv(obj->pwmDacHandle[cnt],PWM_ClkDiv_by_1);
-    PWMDAC_setPhaseDir(obj->pwmDacHandle[cnt],PWM_PhaseDir_CountUp);
-    PWMDAC_setRunMode(obj->pwmDacHandle[cnt],PWM_RunMode_FreeRun);
+		CAP_setModeCap(obj->capHandle[i]);
+		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
+		CAP_setCapContinuous(obj->capHandle[i]);
+		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
+		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
+		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);
+		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_4,CAP_Polarity_Falling);
 
-    // initialize the Timer-Based Phase Register (TBPHS)
-    PWMDAC_setPhase(obj->pwmDacHandle[cnt],0);
+		CAP_enableTimestampCounter(obj->capHandle[i]);
+		CAP_enableCaptureLoad(obj->capHandle[i]);
+	}
 
-    // setup the Time-Base Counter Register (TBCTR)
-    PWMDAC_setCount(obj->pwmDacHandle[cnt],0);
+//	for(i=0;i<3;i++)
+//	{
+//		i = 1;
+//		CAP_disableInt(obj->capHandle[i],CAP_Int_Type_All);
+//		CAP_clearInt(obj->capHandle[i],CAP_Int_Type_All);
+//		CAP_disableCaptureLoad(obj->capHandle[i]);
+//		CAP_disableTimestampCounter(obj->capHandle[i]);
+//
+//		CAP_setModeCap(obj->capHandle[i]);
+//		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
+//		CAP_setCapContinuous(obj->capHandle[i]);
+//		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_4,CAP_Polarity_Falling);
+//
+//		CAP_enableTimestampCounter(obj->capHandle[i]);
+//		CAP_enableCaptureLoad(obj->capHandle[i]);
+//	}
+}
 
-    // Initialize the Time-Base Period Register (TBPRD)
-    // set to zero initially
-    PWMDAC_setPeriod(obj->pwmDacHandle[cnt],0);
-
-    // initialize the Counter-Compare Control Register (CMPCTL)
-    PWMDAC_setLoadMode_CmpA(obj->pwmDacHandle[cnt],PWM_LoadMode_Zero);
-    PWMDAC_setLoadMode_CmpB(obj->pwmDacHandle[cnt],PWM_LoadMode_Zero);
-    PWMDAC_setShadowMode_CmpA(obj->pwmDacHandle[cnt],PWM_ShadowMode_Shadow);
-    PWMDAC_setShadowMode_CmpB(obj->pwmDacHandle[cnt],PWM_ShadowMode_Shadow);
-
-    // Initialize the Action-Qualifier Output A Register (AQCTLA)
-    PWMDAC_setActionQual_CntUp_CmpA_PwmA(obj->pwmDacHandle[cnt],PWM_ActionQual_Clear);
-    PWMDAC_setActionQual_CntDown_CmpA_PwmA(obj->pwmDacHandle[cnt],PWM_ActionQual_Set);
-
-    // account for EPWM6B
-    if(cnt == 0)
-    {
-      PWMDAC_setActionQual_CntUp_CmpB_PwmB(obj->pwmDacHandle[cnt],PWM_ActionQual_Clear);
-      PWMDAC_setActionQual_CntDown_CmpB_PwmB(obj->pwmDacHandle[cnt],PWM_ActionQual_Set);
-    }
-
-    // Initialize the Dead-Band Control Register (DBCTL)
-    PWMDAC_disableDeadBand(obj->pwmDacHandle[cnt]);
-
-    // Initialize the PWM-Chopper Control Register (PCCTL)
-    PWMDAC_disableChopping(obj->pwmDacHandle[cnt]);
-
-    // Initialize the Trip-Zone Control Register (TZSEL)
-    PWMDAC_disableTripZones(obj->pwmDacHandle[cnt]);
-
-    // Initialize the Trip-Zone Control Register (TZCTL)
-    PWMDAC_setTripZoneState_TZA(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
-    PWMDAC_setTripZoneState_TZB(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
-    PWMDAC_setTripZoneState_DCAEVT1(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
-    PWMDAC_setTripZoneState_DCAEVT2(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
-    PWMDAC_setTripZoneState_DCBEVT1(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
-  }
-
-  // since the PWM is configured as an up/down counter, the period register is set to one-half 
-  // of the desired PWM period
-  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_1],halfPeriod_cycles);   // Set period for both DAC1 and DAC2
-  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_2],halfPeriod_cycles);
-  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_3],halfPeriod_cycles);
-
-  return;
-}  // end of HAL_setupPwmDacs() function
+//void HAL_setupPwmDacs(HAL_Handle handle)
+//{
+//  HAL_Obj *obj = (HAL_Obj *)handle;
+//  uint16_t halfPeriod_cycles = 512;       // 3000->10kHz, 1500->20kHz, 1000-> 30kHz, 500->60kHz
+//  uint_least8_t    cnt;
+//
+//
+//  for(cnt=0;cnt<3;cnt++)
+//  {
+//    // initialize the Time-Base Control Register (TBCTL)
+//    PWMDAC_setCounterMode(obj->pwmDacHandle[cnt],PWM_CounterMode_UpDown);
+//    PWMDAC_disableCounterLoad(obj->pwmDacHandle[cnt]);
+//    PWMDAC_setPeriodLoad(obj->pwmDacHandle[cnt],PWM_PeriodLoad_Immediate);
+//    PWMDAC_setSyncMode(obj->pwmDacHandle[cnt],PWM_SyncMode_EPWMxSYNC);
+//    PWMDAC_setHighSpeedClkDiv(obj->pwmDacHandle[cnt],PWM_HspClkDiv_by_1);
+//    PWMDAC_setClkDiv(obj->pwmDacHandle[cnt],PWM_ClkDiv_by_1);
+//    PWMDAC_setPhaseDir(obj->pwmDacHandle[cnt],PWM_PhaseDir_CountUp);
+//    PWMDAC_setRunMode(obj->pwmDacHandle[cnt],PWM_RunMode_FreeRun);
+//
+//    // initialize the Timer-Based Phase Register (TBPHS)
+//    PWMDAC_setPhase(obj->pwmDacHandle[cnt],0);
+//
+//    // setup the Time-Base Counter Register (TBCTR)
+//    PWMDAC_setCount(obj->pwmDacHandle[cnt],0);
+//
+//    // Initialize the Time-Base Period Register (TBPRD)
+//    // set to zero initially
+//    PWMDAC_setPeriod(obj->pwmDacHandle[cnt],0);
+//
+//    // initialize the Counter-Compare Control Register (CMPCTL)
+//    PWMDAC_setLoadMode_CmpA(obj->pwmDacHandle[cnt],PWM_LoadMode_Zero);
+//    PWMDAC_setLoadMode_CmpB(obj->pwmDacHandle[cnt],PWM_LoadMode_Zero);
+//    PWMDAC_setShadowMode_CmpA(obj->pwmDacHandle[cnt],PWM_ShadowMode_Shadow);
+//    PWMDAC_setShadowMode_CmpB(obj->pwmDacHandle[cnt],PWM_ShadowMode_Shadow);
+//
+//    // Initialize the Action-Qualifier Output A Register (AQCTLA)
+//    PWMDAC_setActionQual_CntUp_CmpA_PwmA(obj->pwmDacHandle[cnt],PWM_ActionQual_Clear);
+//    PWMDAC_setActionQual_CntDown_CmpA_PwmA(obj->pwmDacHandle[cnt],PWM_ActionQual_Set);
+//
+//    // account for EPWM6B
+//    if(cnt == 0)
+//    {
+//      PWMDAC_setActionQual_CntUp_CmpB_PwmB(obj->pwmDacHandle[cnt],PWM_ActionQual_Clear);
+//      PWMDAC_setActionQual_CntDown_CmpB_PwmB(obj->pwmDacHandle[cnt],PWM_ActionQual_Set);
+//    }
+//
+//    // Initialize the Dead-Band Control Register (DBCTL)
+//    PWMDAC_disableDeadBand(obj->pwmDacHandle[cnt]);
+//
+//    // Initialize the PWM-Chopper Control Register (PCCTL)
+//    PWMDAC_disableChopping(obj->pwmDacHandle[cnt]);
+//
+//    // Initialize the Trip-Zone Control Register (TZSEL)
+//    PWMDAC_disableTripZones(obj->pwmDacHandle[cnt]);
+//
+//    // Initialize the Trip-Zone Control Register (TZCTL)
+//    PWMDAC_setTripZoneState_TZA(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
+//    PWMDAC_setTripZoneState_TZB(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
+//    PWMDAC_setTripZoneState_DCAEVT1(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
+//    PWMDAC_setTripZoneState_DCAEVT2(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
+//    PWMDAC_setTripZoneState_DCBEVT1(obj->pwmDacHandle[cnt],PWM_TripZoneState_HighImp);
+//  }
+//
+//  // since the PWM is configured as an up/down counter, the period register is set to one-half
+//  // of the desired PWM period
+//  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_1],halfPeriod_cycles);   // Set period for both DAC1 and DAC2
+//  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_2],halfPeriod_cycles);
+//  PWMDAC_setPeriod(obj->pwmDacHandle[PWMDAC_Number_3],halfPeriod_cycles);
+//
+//  return;
+//}  // end of HAL_setupPwmDacs() function
 
 
 void HAL_setupTimers(HAL_Handle handle,const float_t systemFreq_MHz)
@@ -1848,23 +1957,23 @@ void HAL_setupDrvSpi(HAL_Handle handle, DRV_SPI_8301_Vars_t *Spi_8301_Vars)
 }  // end of HAL_setupDrvSpi() function
 
 
-void HAL_setDacParameters(HAL_Handle handle, HAL_DacData_t *pDacData)
-{
-	HAL_Obj *obj = (HAL_Obj *)handle;
-
-	pDacData->PeriodMax = PWMDAC_getPeriod(obj->pwmDacHandle[PWMDAC_Number_1]);
-
-	pDacData->offset[0] = _IQ(0.5);
-	pDacData->offset[1] = _IQ(0.5);
-	pDacData->offset[2] = _IQ(0.0);
-	pDacData->offset[3] = _IQ(0.0);
-
-	pDacData->gain[0] = _IQ(1.0);
-	pDacData->gain[1] = _IQ(1.0);
-	pDacData->gain[2] = _IQ(1.0);
-	pDacData->gain[3] = _IQ(1.0);
-
-	return;
-}	//end of HAL_setDacParameters() function
+//void HAL_setDacParameters(HAL_Handle handle, HAL_DacData_t *pDacData)
+//{
+//	HAL_Obj *obj = (HAL_Obj *)handle;
+//
+//	pDacData->PeriodMax = PWMDAC_getPeriod(obj->pwmDacHandle[PWMDAC_Number_1]);
+//
+//	pDacData->offset[0] = _IQ(0.5);
+//	pDacData->offset[1] = _IQ(0.5);
+//	pDacData->offset[2] = _IQ(0.0);
+//	pDacData->offset[3] = _IQ(0.0);
+//
+//	pDacData->gain[0] = _IQ(1.0);
+//	pDacData->gain[1] = _IQ(1.0);
+//	pDacData->gain[2] = _IQ(1.0);
+//	pDacData->gain[3] = _IQ(1.0);
+//
+//	return;
+//}	//end of HAL_setDacParameters() function
 
 // end of file

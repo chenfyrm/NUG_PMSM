@@ -41,8 +41,14 @@
 // **************************************************************************
 // the includes
 
-#include "ctrl_obj.h"
+
+// modules
+
+
+// platforms
 #include "userParams.h"
+#include "NUG_ctrl_obj.h"
+
 
 //!
 //!
@@ -157,7 +163,7 @@ extern "C" {
 //! \brief and adjustable ADC SOC to decimate the ADC conversion done interrupt to the control system, or to use the software Que example.
 //! \brief Otherwise you risk missing interrupts and disrupting the timing of the control state machine
 //#define USER_PWM_FREQ_kHz                (45.0) //30.0 Example, 8.0 - 30.0 KHz typical; 45-80 KHz may be required for very low inductance, high speed motors
-#define USER_PWM_FREQ_kHz                (20.0)
+#define USER_PWM_FREQ_kHz                (30.0)
 
 //! \brief Defines the maximum Voltage vector (Vs) magnitude allowed.  This value sets the maximum magnitude for the output of the
 //! \brief Id and Iq PI current controllers.  The Id and Iq current controller outputs are Vd and Vq.
@@ -200,7 +206,7 @@ extern "C" {
 //! \brief Defines the number of pwm clock ticks per isr clock tick
 //!        Note: Valid values are 1, 2 or 3 only
 //#define USER_NUM_PWM_TICKS_PER_ISR_TICK        (3)
-#define USER_NUM_PWM_TICKS_PER_ISR_TICK        (2)
+#define USER_NUM_PWM_TICKS_PER_ISR_TICK        (3)
 
 //! \brief Defines the number of isr ticks (hardware) per controller clock tick (software)
 //! \brief Controller clock tick (CTRL) is the main clock used for all timing in the software
@@ -222,12 +228,14 @@ extern "C" {
 
 //! \brief Defines the number of controller clock ticks per speed controller clock tick
 //! \brief Relationship of controller clock rate to speed loop rate
-#define USER_NUM_CTRL_TICKS_PER_SPEED_TICK  (15)   // 15 Typical to match PWM, ex: 15KHz PWM, controller, and current loop, 1KHz speed loop
+//#define USER_NUM_CTRL_TICKS_PER_SPEED_TICK  (15)   // 15 Typical to match PWM, ex: 15KHz PWM, controller, and current loop, 1KHz speed loop
+#define USER_NUM_CTRL_TICKS_PER_SPEED_TICK  (10)
 
 //! \brief Defines the number of controller clock ticks per trajectory clock tick
 //! \brief Relationship of controller clock rate to trajectory loop rate
 //! \brief Typically the same as the speed rate
-#define USER_NUM_CTRL_TICKS_PER_TRAJ_TICK   (15)   // 15 Typical to match PWM, ex: 15KHz controller & current loop, 1KHz speed loop, 1 KHz Trajectory
+//#define USER_NUM_CTRL_TICKS_PER_TRAJ_TICK   (15)   // 15 Typical to match PWM, ex: 15KHz controller & current loop, 1KHz speed loop, 1 KHz Trajectory
+#define USER_NUM_CTRL_TICKS_PER_TRAJ_TICK   (10)
 
 //! \brief Defines the controller frequency, Hz
 //! \brief Compile time calculation

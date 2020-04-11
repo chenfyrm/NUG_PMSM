@@ -45,11 +45,12 @@
 
 // modules
 #include "user_math.h"
-#include "pwmdac.h"
+//#include "pwmdac.h"
 #include "offset.h"
 
 // drivers
 #include "adc.h"
+#include "cap.h"
 #include "clk.h"
 #include "cpu.h"
 #include "flash.h"
@@ -65,10 +66,9 @@
 #include "timer.h"
 #include "wdog.h"
 
-#include "drv8301.h"
 
 // platforms
-
+#include "drv8301.h"
 
 
 //!
@@ -94,6 +94,16 @@ typedef struct _HAL_AdcData_t_
 
   _iq       dcBus;      //!< the dcBus value
 
+  _iq		IDcLk;		//!< the DC link current value
+
+  _iq		IChop;		//!< the chopper resistor current value
+
+  _iq		TChop;		//!< the chopper resistor temperature value
+
+  _iq		TMotor;		//!< the motor windings temperature value
+
+  _iq		TBoard;		//!< the control board temperature value
+
 } HAL_AdcData_t;
 
 
@@ -101,15 +111,15 @@ typedef struct _HAL_AdcData_t_
 //! \details    This data structure contains the pwm values that are used for the DAC output
 //!             on a lot of the hardware kits for debugging.
 //!
-typedef struct _HAL_DacData_t_
-{
-  uint16_t	PeriodMax;		//!<
-  int32_t  *ptrData[4];     //!< Input: First input pointer
-  _iq  		value[4];       //!< the DAC data
-  _iq  		offset[4];      //!< the DAC data
-  _iq  		gain[4];        //!< the DAC data
-
-} HAL_DacData_t;
+//typedef struct _HAL_DacData_t_
+//{
+//  uint16_t	PeriodMax;		//!<
+//  int32_t  *ptrData[4];     //!< Input: First input pointer
+//  _iq  		value[4];       //!< the DAC data
+//  _iq  		offset[4];      //!< the DAC data
+//  _iq  		gain[4];        //!< the DAC data
+//
+//} HAL_DacData_t;
 
 
 //! \brief      Defines the PWM data
@@ -148,7 +158,7 @@ typedef struct _HAL_Obj_
 
   PWM_Handle    pwmHandle[3];     //<! the PWM handles
 
-  PWMDAC_Handle pwmDacHandle[3];  //<! the PWMDAC handles
+//  PWMDAC_Handle pwmDacHandle[3];  //<! the PWMDAC handles
 
   PWR_Handle    pwrHandle;        //<! the power handle
 
@@ -161,7 +171,9 @@ typedef struct _HAL_Obj_
 
   SCI_Handle	sciBHandle;
 
-  QEP_Handle    qepHandle[1];      //!< the QEP handle
+  CAP_Handle	capHandle[3];		//!< the CAP handle
+
+  QEP_Handle    qepHandle[2];      //!< the QEP handle
 
   CPU_Handle    cpuHandle;        //!< the CPU handle
 
@@ -174,11 +186,21 @@ typedef struct _HAL_Obj_
   OFFSET_Handle offsetHandle_V[3];  //!< the handles for the voltage offset estimators
   OFFSET_Obj    offset_V[3];        //!< the voltage offset objects
 
+  OFFSET_Handle offsetHandle_IDcLk;
+  OFFSET_Obj	offset_IDcLk;
+
+  OFFSET_Handle offsetHandle_IChop;
+  OFFSET_Obj	offset_IChop;
+
   HAL_AdcData_t adcBias;          //!< the ADC bias
 
   _iq           current_sf;       //!< the current scale factor, amps_pu/cnt
 
   _iq           voltage_sf;       //!< the voltage scale factor, volts_pu/cnt
+
+  _iq			pt100_sf;
+
+  _iq			ntc_sf;			//!< R25 = 10K; B = 3950
 
   uint_least8_t numCurrentSensors; //!< the number of current sensors
   uint_least8_t numVoltageSensors; //!< the number of voltage sensors
@@ -224,6 +246,12 @@ inline void HAL_runOffsetEst(HAL_Handle handle,const HAL_AdcData_t *pAdcData)
     {
       OFFSET_run(obj->offsetHandle_V[cnt],pAdcData->V.value[cnt]);
     }
+
+  // estimate the DC link current offsets
+  OFFSET_run(obj->offsetHandle_IDcLk,pAdcData->IDcLk);
+
+  // estimate the chopper current offsets
+  OFFSET_run(obj->offsetHandle_IChop,pAdcData->IChop);
 
   return;
 } // end of HAL_runOffsetEst() function

@@ -41,7 +41,7 @@
 // **************************************************************************
 // the includes
 
-//#include <math.h>
+#include <math.h>
 
 
 // drivers
@@ -52,9 +52,9 @@
 
 
 // platforms
-//#include "NUG_hal.h"
+#include "NUG_hal.h"
 #include "NUG_ctrl.h"
-//#include "NUG_user.h"
+#include "NUG_user.h"
 
 //#include "NUG_project.h"
 
@@ -779,5 +779,33 @@ bool CTRL_updateState(CTRL_Handle handle)
 
   return(stateChanged);
 } // end of CTRL_updateState() function
+
+
+_iq CTRL_angleDelayComp(CTRL_Handle handle, const _iq angle_pu)
+{
+  CTRL_Obj *obj = (CTRL_Obj *)handle;
+  _iq angleDelta_pu = _IQmpy(EST_getFm_pu(obj->estHandle),_IQ(USER_IQ_FULL_SCALE_FREQ_Hz/(USER_PWM_FREQ_kHz*1000.0)));
+  _iq angleUncomp_pu = angle_pu;
+  _iq angleCompFactor = _IQ(1.0 + (float_t)USER_NUM_PWM_TICKS_PER_ISR_TICK * (float_t)USER_NUM_ISR_TICKS_PER_CTRL_TICK * ((float_t)USER_NUM_CTRL_TICKS_PER_EST_TICK - 0.5));
+  _iq angleDeltaComp_pu = _IQmpy(angleDelta_pu, angleCompFactor);
+  uint32_t angleMask = ((uint32_t)0xFFFFFFFF >> (32 - GLOBAL_Q));
+  _iq angleTmp_pu;
+  _iq angleComp_pu;
+
+  // increment the angle
+  angleTmp_pu = angleUncomp_pu + angleDeltaComp_pu;
+
+  // mask the angle for wrap around
+  // note: must account for the sign of the angle
+  angleComp_pu = _IQabs(angleTmp_pu) & angleMask;
+
+  // account for sign
+  if(angleTmp_pu < 0)
+    {
+   	  angleComp_pu = -angleComp_pu;
+    }
+
+  return(angleComp_pu);
+}
 
 // end of file

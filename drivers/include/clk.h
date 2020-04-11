@@ -45,8 +45,6 @@
 #include "pwm.h"
 
 
-
-
 //!
 //!
 //! \defgroup CLK CLK
@@ -139,6 +137,14 @@ extern "C" {
 //! \brief Defines the location of the ECAP1ENCLK bits in the PCLKCR1 register
 //!
 #define  CLK_PCLKCR1_ECAP1ENCLK_BITS     (1 << 8)
+
+//! \brief Defines the location of the ECAP2ENCLK bits in the PCLKCR1 register
+//!
+#define  CLK_PCLKCR1_ECAP2ENCLK_BITS     (1 << 9)
+
+//! \brief Defines the location of the ECAP3ENCLK bits in the PCLKCR1 register
+//!
+#define  CLK_PCLKCR1_ECAP3ENCLK_BITS     (1 << 10)
 
 //! \brief Defines the location of the EQEP1ENCLK bits in the PCLKCR1 register
 //!
@@ -555,6 +561,14 @@ extern void CLK_enableEcanaClock(CLK_Handle clkHandle);
 //! \brief     Enables the ECAP1 clock
 //! \param[in] clkHandle   The clock (CLK) object handle
 extern void CLK_enableEcap1Clock(CLK_Handle clkHandle);
+
+//! \brief     Enables the ECAP2 clock
+//! \param[in] clkHandle   The clock (CLK) object handle
+extern void CLK_enableEcap2Clock(CLK_Handle clkHandle);
+
+//! \brief     Enables the ECAP3 clock
+//! \param[in] clkHandle   The clock (CLK) object handle
+extern void CLK_enableEcap3Clock(CLK_Handle clkHandle);
 
 
 //! \brief     Enables the EQEP1 clock

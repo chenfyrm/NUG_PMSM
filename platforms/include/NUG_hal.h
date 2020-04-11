@@ -42,14 +42,23 @@
 // **************************************************************************
 // the includes
 
+// drivers
+
+
 
 // modules
+
 #include "svgen_current.h"
 
+
+
 // platforms
-#include "NUG_hal_obj.h"
 
 #include "userParams.h"
+#include "NUG_hal_obj.h"
+
+
+
 
 //!
 //!
@@ -65,6 +74,7 @@ extern "C" {
 
 // **************************************************************************
 // the defines
+
 
 //! \brief Defines that a DRV8301 chip SPI port is used on the board.
 #define DRV8301_SPI
@@ -213,11 +223,15 @@ typedef enum
 // **************************************************************************
 // the globals
 
-extern interrupt void mainISR(void);
+//! \brief      Defines the HAL object
+//!
+extern HAL_Obj hal;
 
 
 // **************************************************************************
 // the function prototypes
+
+extern interrupt void mainISR(void);
 
 
 //! \brief     Acknowledges an interrupt from the ADC so that another ADC interrupt can 
@@ -572,6 +586,12 @@ static inline void HAL_readAdcData(HAL_Handle handle,HAL_AdcData_t *pAdcData)
   _iq current_sf = HAL_getCurrentScaleFactor(handle);
   _iq voltage_sf = HAL_getVoltageScaleFactor(handle);
 
+  // NTC电阻与1K电阻分压3.3V ADCVref 0-3.3V
+  _iq ntc_sf	= _IQ(1.0);
+
+  //PT100电阻与1K电阻分压3.3V ADCVref 0-3.3V
+  _iq pt100_sf	= _IQ(1.0);
+
 
   // convert current A
   // sample the first sample twice due to errata sprz342f, ignore the first sample
@@ -611,6 +631,31 @@ static inline void HAL_readAdcData(HAL_Handle handle,HAL_AdcData_t *pAdcData)
   value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_7);     // divide by 2^numAdcBits = 2^12
   value = _IQ12mpy(value,voltage_sf);
   pAdcData->dcBus = value;
+
+  // read the DC link current value
+  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_8);
+  value = _IQ12mpy(value,current_sf) - obj->adcBias.IDcLk;
+  pAdcData->IDcLk = -value;
+
+  // read the chopper resistor current value
+  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_9);
+  value = _IQ12mpy(value,current_sf) - obj->adcBias.IChop;
+  pAdcData->IChop = -value;
+
+  // read the chopper resistor temperature value
+  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_10);
+  value = _IQ12mpy(value,pt100_sf);
+  pAdcData->TChop = value;
+
+  // read the motor windings temperature value
+  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_11);
+  value = _IQ12mpy(value,ntc_sf);
+  pAdcData->TMotor = value;
+
+  // read the control board temperature value
+  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_12);
+  value = _IQ12mpy(value,ntc_sf);
+  pAdcData->TBoard = value;
 
   return;
 } // end of HAL_readAdcData() function
@@ -1056,7 +1101,7 @@ extern void HAL_setupPwms(HAL_Handle handle,
 
 //! \brief     Sets up the PWM DACs (Pulse Width Modulator Digital to Analof Converters)
 //! \param[in] handle  The hardware abstraction layer (HAL) handle
-extern void HAL_setupPwmDacs(HAL_Handle handle);
+//extern void HAL_setupPwmDacs(HAL_Handle handle);
 
 
 //! \brief     Sets up the QEP peripheral
@@ -1079,6 +1124,10 @@ extern void HAL_setupSpiB(HAL_Handle handle);
 //! \brief     Sets up the spiB peripheral
 //! \param[in] handle  The hardware abstraction layer (HAL) handle
 extern void HAL_setupSciB(HAL_Handle handle);
+
+//! \brief     Sets up the cap peripheral
+//! \param[in] handle  The hardware abstraction layer (HAL) handle
+extern void HAL_setupCap(HAL_Handle handle);
 
 //! \brief     Sets up the timers
 //! \param[in] handle          The hardware abstraction layer (HAL) handle
@@ -1119,6 +1168,16 @@ static inline void HAL_updateAdcBias(HAL_Handle handle)
       HAL_setBias(handle,HAL_SensorType_Voltage,cnt,bias);
     }
 
+  // update the DC link current bias
+  bias = obj->adcBias.IDcLk;
+  bias -= OFFSET_getOffset(obj->offsetHandle_IDcLk);
+  obj->adcBias.IDcLk = bias;
+
+  // update the chopper current bias
+  bias = handle->adcBias.IChop;
+  bias -= OFFSET_getOffset(obj->offsetHandle_IChop);
+  obj->adcBias.IChop = bias;
+
   return;
 } // end of HAL_updateAdcBias() function
 
@@ -1126,33 +1185,33 @@ static inline void HAL_updateAdcBias(HAL_Handle handle)
 //! \brief     Writes DAC data to the PWM comparators for DAC (digital-to-analog conversion) output
 //! \param[in] handle    The hardware abstraction layer (HAL) handle
 //! \param[in] pDacData  The pointer to the DAC data
-static inline void HAL_writeDacData(HAL_Handle handle,HAL_DacData_t *pDacData)
-{
-  HAL_Obj *obj = (HAL_Obj *)handle;
-  PWM_Obj *pwm = (PWM_Obj *)obj->pwmDacHandle[PWMDAC_Number_1];
-  _iq period = (_iq)pwm->TBPRD;
-  _iq pwmData_sat, pwmData_sat_dc, value;
-  uint16_t value_sat[4];
-  uint_least8_t cnt;
-
-
-  for(cnt=0;cnt<4;cnt++)
-    {
-      pwmData_sat = _IQsat(pDacData->value[cnt],_IQ(0.5),_IQ(-0.5));
-      pwmData_sat_dc = pwmData_sat + _IQ(0.5);
-      value = _IQmpy(pwmData_sat_dc, period);
-      value_sat[cnt] = (uint16_t)_IQsat(value, period, _IQ(0.0));
-    }
-
-
-  // write the DAC data
-  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_1],value_sat[0]);
-  PWMDAC_write_CmpB(obj->pwmDacHandle[PWMDAC_Number_1],value_sat[1]);
-  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_2],value_sat[2]);
-  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_3],value_sat[3]);
-
-  return;
-} // end of HAL_writeDacData() function
+//static inline void HAL_writeDacData(HAL_Handle handle,HAL_DacData_t *pDacData)
+//{
+//  HAL_Obj *obj = (HAL_Obj *)handle;
+//  PWM_Obj *pwm = (PWM_Obj *)obj->pwmDacHandle[PWMDAC_Number_1];
+//  _iq period = (_iq)pwm->TBPRD;
+//  _iq pwmData_sat, pwmData_sat_dc, value;
+//  uint16_t value_sat[4];
+//  uint_least8_t cnt;
+//
+//
+//  for(cnt=0;cnt<4;cnt++)
+//    {
+//      pwmData_sat = _IQsat(pDacData->value[cnt],_IQ(0.5),_IQ(-0.5));
+//      pwmData_sat_dc = pwmData_sat + _IQ(0.5);
+//      value = _IQmpy(pwmData_sat_dc, period);
+//      value_sat[cnt] = (uint16_t)_IQsat(value, period, _IQ(0.0));
+//    }
+//
+//
+//  // write the DAC data
+//  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_1],value_sat[0]);
+//  PWMDAC_write_CmpB(obj->pwmDacHandle[PWMDAC_Number_1],value_sat[1]);
+//  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_2],value_sat[2]);
+//  PWMDAC_write_CmpA(obj->pwmDacHandle[PWMDAC_Number_3],value_sat[3]);
+//
+//  return;
+//} // end of HAL_writeDacData() function
 
 
 //! \brief     Writes PWM data to the PWM comparators for motor control
@@ -1426,7 +1485,8 @@ void HAL_setupDrvSpi(HAL_Handle handle, DRV_SPI_8301_Vars_t *Spi_8301_Vars);
 //! \brief     Writes DAC data to the PWM comparators for DAC (digital-to-analog conversion) output
 //! \param[in] handle    The hardware abstraction layer (HAL) handle
 //! \param[in] pDacData  The pointer to the DAC data
-void HAL_setDacParameters(HAL_Handle handle, HAL_DacData_t *pDacData);
+//void HAL_setDacParameters(HAL_Handle handle, HAL_DacData_t *pDacData);
+
 
 #ifdef __cplusplus
 }

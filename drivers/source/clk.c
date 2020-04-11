@@ -586,6 +586,36 @@ void CLK_enableEcap1Clock(CLK_Handle clkHandle)
   return;
 } // end of CLK_enableEcap1Clock() function
 
+void CLK_enableEcap2Clock(CLK_Handle clkHandle)
+{
+  CLK_Obj *clk = (CLK_Obj *)clkHandle;
+
+
+  ENABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  // set the bits
+  clk->PCLKCR1 |= CLK_PCLKCR1_ECAP2ENCLK_BITS;
+
+  DISABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  return;
+} // end of CLK_enableEcap2Clock() function
+
+void CLK_enableEcap3Clock(CLK_Handle clkHandle)
+{
+  CLK_Obj *clk = (CLK_Obj *)clkHandle;
+
+
+  ENABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  // set the bits
+  clk->PCLKCR1 |= CLK_PCLKCR1_ECAP3ENCLK_BITS;
+
+  DISABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  return;
+} // end of CLK_enableEcap3Clock() function
+
 
 void CLK_enableClkIn(CLK_Handle clkHandle)
 {

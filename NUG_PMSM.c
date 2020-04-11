@@ -41,8 +41,9 @@
 //!
 // **************************************************************************
 // the includes
-// system includes
+
 #include "NUG_main.h"
+
 
 #ifdef FLASH
 #pragma CODE_SECTION(mainISR,"ramfuncs");
@@ -55,8 +56,27 @@
 
 #define LED_BLINK_FREQ_Hz   5
 
+#define BIT_UDCOL			(1<<0)
+#define BIT_UDCUL			(1<<1)
+#define BIT_IAOL			(1<<2)
+#define BIT_IBOL			(1<<3)
+#define BIT_ICOL			(1<<4)
+#define BIT_UAOL			(1<<5)
+#define BIT_UBOL			(1<<6)
+#define BIT_UCOL			(1<<7)
+
 // **************************************************************************
 // the globals
+
+uint16_t gFault = 0;
+uint16_t cnt_UDCOL = 0;
+uint16_t cnt_UDCUL = 0;
+uint16_t cnt_IAOL = 0;
+uint16_t cnt_IBOL = 0;
+uint16_t cnt_ICOL = 0;
+uint16_t cnt_UAOL = 0;
+uint16_t cnt_UBOL = 0;
+uint16_t cnt_UCOL = 0;
 
 uint16_t gLEDcnt = 0;
 
@@ -66,28 +86,31 @@ bool Flag_Latch_softwareUpdate = true;
 
 HAL_Handle halHandle;
 
+CTRL_Handle ctrlHandle;
+CTRL_Obj *controller_obj;
+
 USER_Params gUserParams;
 
 HAL_AdcData_t gAdcData;
 
+HAL_PwmData_t gPwmData = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
+//HAL_PwmData_t gPwmDataSim = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
+
+
 volatile MOTOR_Vars_t gMotorVars = MOTOR_Vars_INIT;
 
-CTRL_Handle ctrlHandle;
-CTRL_Obj *controller_obj;
+CPU_USAGE_Handle cpu_usageHandle;
+CPU_USAGE_Obj    cpu_usage;
+float_t          gCpuUsagePercentageMin = 0.0;
+float_t          gCpuUsagePercentageAvg = 0.0;
+float_t          gCpuUsagePercentageMax = 0.0;
 
-HAL_PwmData_t gPwmData = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
-HAL_PwmData_t gPwmDataSim = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
 
 _iq gMaxCurrentSlope = _IQ(0.0);
 
 #ifdef FLASH
 // Used for running BackGround in flash, and ISR in RAM
 		extern uint16_t *RamfuncsLoadStart, *RamfuncsLoadEnd, *RamfuncsRunStart;
-
-#ifdef CSM_ENABLE
-		extern uint16_t *econst_start, *econst_end, *econst_ram_load;
-		extern uint16_t *switch_start, *switch_end, *switch_ram_load;
-#endif
 #endif
 
 // Watch window interface to the 8301 SPI
@@ -107,6 +130,7 @@ uint16_t flag2 = 0;
 uint16_t flag3 = 0;
 uint16_t rxPos = 0;
 uint16_t rxSta = 0;
+uint16_t cnt_Rx = 0;
 uint16_t RX[11];
 
 uint16_t txPos = 0;
@@ -123,6 +147,28 @@ uint16_t gXor = 0;
 uint16_t flagTxRx = 0;
 uint16_t cnt_mainIsr = 0;
 
+_iq VDcTrs = 0;
+_iq VDcFlt = 0;
+
+uint16_t gHallA = 0;
+uint16_t gHallB = 0;
+uint16_t gHallC = 0;
+uint16_t gHall_GpioData = 0;
+
+uint32_t gCntTimer0 = 0;
+uint32_t gCntTimer1 = 0;
+uint32_t gCntTimer2 = 0;
+
+float_t estAngle = 0.0;
+float_t hallAngle = 0.0;
+
+uint32_t HallACap1 = 0;
+uint32_t HallACap2 = 0;
+uint32_t HallBCap1 = 0;
+uint32_t HallBCap2 = 0;
+uint32_t HallCCap1 = 0;
+uint32_t HallCCap2 = 0;
+
 void SCIB_TX_PRE(void);
 void SCIB_TX(void);
 
@@ -131,6 +177,8 @@ void SCIB_RX_RSL(void);
 //void SCIB_RX_INIT(void);
 
 void chopper(void);
+
+void updateCPUusage(void);
 
 
 //void SCIB_RX_INIT(void)
@@ -149,25 +197,27 @@ void SCIB_TX_PRE(void){
 	uint16_t request = 0xAA;
 	uint16_t id = 0x11;
 
-	//不在发送状态
-	if(txSta == 0){
-		TX[0] = 0x01;//目标地址
-		TX[1] = 0x0A;//帧长
-		TX[2] = 0x02;//功能码
-		TX[3] = status&0xFF;
-		TX[4] = ((uint16_t)(gMotorVars.Torque_Nm*10.0))>>8&0xFF;
-		TX[5] = ((uint16_t)(gMotorVars.Torque_Nm*10.0))&0xFF;
-		TX[6] = request&0xFF;
-		TX[7] = id>>8&0xFF;
-		TX[8] = id&0xFF;
-		for(i=0;i<9;i++)
-		{
-			xor ^=TX[i];
+	if (txSta == 0){ //不在发送状态
+		TX[0] = 0x01; //目标地址
+		TX[1] = 0x0A; //帧长
+		TX[2] = 0x02; //功能码
+		TX[3] = status & 0xFF;
+		TX[4] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) >> 8 & 0xFF;
+		TX[5] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) & 0xFF;
+		TX[6] = request & 0xFF;
+		TX[7] = id >> 8 & 0xFF;
+		TX[8] = id & 0xFF;
+		for (i = 0; i < 9; i++) {
+			xor ^= TX[i];
 		}
 		TX[9] = xor;
-
-		txSta = 1;
 	}
+
+	txSta = 1;
+
+	SCI_resetTxFifo(halHandle->sciBHandle);
+	SCI_enableTxFifo(halHandle->sciBHandle);
+
 }
 
 void SCIB_TX(void) {
@@ -188,9 +238,10 @@ void SCIB_TX(void) {
 void SCIB_RX(void) {
 	uint16_t rxTmp = 0;
 
-	if(rxSta == 1){
+//	if(rxSta == 1){
 		if (SCI_getRxFifoStatus(halHandle->sciBHandle) >= 1) {
 			rxTmp = halHandle->sciBHandle->SCIRXBUF & 0xFF;
+			cnt_Rx = 0;
 
 			if(flag1 == 0){
 				rxPos = 0;
@@ -216,18 +267,18 @@ void SCIB_RX(void) {
 				flag3 = 0;
 				rxPos = 0;
 			}
-
-			RX[rxPos] = rxTmp;
+			else
+				RX[rxPos] = rxTmp;
 		}
 
-		if(rxPos>=10){
+		if(rxPos>=10||cnt_Rx > 1000){
 			flag1 = 0;
 			flag2 = 0;
 			flag3 = 0;
 			rxPos = 0;
 			rxSta = 0;
 		}
-	}
+//	}
 }
 
 void SCIB_RX_RSL(void)
@@ -235,29 +286,42 @@ void SCIB_RX_RSL(void)
 	uint16_t i = 0;
 	uint16_t xor = 0;
 
+
 	if(rxSta == 0){
 		for(i=0;i<10;i++)
 			xor ^=RX[i];
 
 		gXor = xor;
 
-		if (RX[10] == xor) {
+//		if (RX[10] == xor)
+		if ((RX[0] == 0x02)&&(RX[1] == 0x0B)&&(RX[2] == 0x01)&&(RX[10] == 0xFF))
+		{
 			RtTorque = (float) (RX[3] << 8 | RX[4])/10.0;
 			LiftTorque = (float) (RX[5] << 8 | RX[6])/10.0;
 			RollbackTorque = (float) (RX[7] << 8 | RX[8])/10.0;
 			gStatus = RX[9];
 		}
-
-		rxSta = 1;
 	}
+
+	rxSta = 1;
+
+	SCI_resetRxFifo(halHandle->sciBHandle);
+	SCI_clearRxFifoOvf(halHandle->sciBHandle);
+	SCI_enableRxFifo(halHandle->sciBHandle);
+
 }
 
 void chopper(void)
 {
-	if(gAdcData.dcBus > _IQ(1.1))
+	if(gAdcData.dcBus > _IQ(1.28))
 		HAL_enableCHOPPER();
-	else if(gAdcData.dcBus < _IQ(1.05))
+	else if(gAdcData.dcBus < _IQ(1.23))
 		HAL_disableCHOPPER();
+
+//	if(VDcTrs > _IQ(1.28))
+//		HAL_enableCHOPPER();
+//	else if(VDcTrs < _IQ(1.23))
+//		HAL_disableCHOPPER();
 }
 
 // **************************************************************************
@@ -273,20 +337,6 @@ void main(void) {
 	// The RamfuncsLoadStart, RamfuncsLoadEnd, and RamfuncsRunStart
 	// symbols are created by the linker. Refer to the linker files.
 	memCopy((uint16_t *)&RamfuncsLoadStart,(uint16_t *)&RamfuncsLoadEnd,(uint16_t *)&RamfuncsRunStart);
-
-#ifdef CSM_ENABLE
-	//copy .econst to unsecure RAM
-	if(*econst_end - *econst_start)
-	{
-		memCopy((uint16_t *)&econst_start,(uint16_t *)&econst_end,(uint16_t *)&econst_ram_load);
-	}
-
-	//copy .switch ot unsecure RAM
-	if(*switch_end - *switch_start)
-	{
-		memCopy((uint16_t *)&switch_start,(uint16_t *)&switch_end,(uint16_t *)&switch_ram_load);
-	}
-#endif
 #endif
 
 	// initialize the hardware abstraction layer
@@ -310,7 +360,12 @@ void main(void) {
 
 	// set the hardware abstraction layer parameters
 	HAL_setParams(halHandle, &gUserParams);
+
 	RtTorque = 0.0;
+
+	uint16_t i;
+	for(i=0;i<11;i++)
+		RX[i] = 0;
 
 	// initialize the controller
 	ctrlHandle = CTRL_initCtrl(0, 0);  	//v1p6 format (06xF and 06xM devices)
@@ -326,6 +381,11 @@ void main(void) {
 
 	// set the default controller parameters
 	CTRL_setParams(ctrlHandle, &gUserParams);
+
+	// init cpu usage handle
+	cpu_usageHandle = CPU_USAGE_init(&cpu_usage, sizeof(CPU_USAGE_Obj));
+	CPU_USAGE_setParams(cpu_usageHandle, HAL_getTimerPeriod(halHandle, 1),
+			(uint32_t) USER_ISR_FREQ_Hz);
 
 	// setup faults
 	HAL_setupFaults(halHandle);
@@ -421,7 +481,7 @@ void main(void) {
 				bool flag_ctrlStateChanged = CTRL_updateState(ctrlHandle);
 
 				// enable or disable the control
-				if((!gDrvSpi8301Vars.Stat_Reg_1.FAULT)&&(gStatus!=0x00))
+				if((!gDrvSpi8301Vars.Stat_Reg_1.FAULT)&&(gStatus!=0x00)&&(gFault == 0))
 					gMotorVars.Flag_Run_Identify = true;
 				else
 				{
@@ -534,18 +594,14 @@ void main(void) {
 				updateIqRef(ctrlHandle);
 			}
 
+	        // update CPU usage
+	        updateCPUusage();
 
 
-#ifdef DRV8301_SPI
 			HAL_writeDrvData(halHandle, &gDrvSpi8301Vars);
 
 			HAL_readDrvData(halHandle, &gDrvSpi8301Vars);
-#endif
-#ifdef DRV8305_SPI
-			HAL_writeDrvData(halHandle,&gDrvSpi8305Vars);
 
-			HAL_readDrvData(halHandle,&gDrvSpi8305Vars);
-#endif
 		} // end of while(gFlag_enableSys) loop
 
 		// disable the PWM
@@ -557,30 +613,40 @@ void main(void) {
 
 		RtTorque = 0.0;
 
+
+
 	} // end of for(;;) loop
 
 } // end of main() function
 
 interrupt void mainISR(void) {
+
+	// read the timer 1 value and update the CPU usage module
+	uint32_t timer1Cnt = HAL_readTimerCnt(halHandle, 1);
+	CPU_USAGE_updateCnts(cpu_usageHandle, timer1Cnt);
+
+	gCntTimer0 = HAL_readTimerCnt(halHandle, 0);
+	gCntTimer1 = HAL_readTimerCnt(halHandle, 1);
+	gCntTimer2 = HAL_readTimerCnt(halHandle, 2);
+
 	// toggle status LED
 	if (++gLEDcnt >= (uint_least32_t) (USER_ISR_FREQ_Hz / LED_BLINK_FREQ_Hz)) {
 		HAL_toggleLed(halHandle, (GPIO_Number_e) HAL_Gpio_LED2);
 		gLEDcnt = 0;
 	}
 
-	// acknowledge the ADC interrupt
-	HAL_acqAdcInt(halHandle, ADC_IntNumber_1);
-
-	// convert the ADC data
-	HAL_readAdcData(halHandle, &gAdcData);
-
-	/********************************protect**********************************/
-
-	/******************************************************************/
-
-	/******************************inverter************************************/
-	// run the controller
-	CTRL_run(ctrlHandle, halHandle, &gAdcData, &gPwmData);
+	if(cnt_Rx != 65535)
+		cnt_Rx ++;
+	if(cnt_UDCOL != 65535)
+		cnt_UDCOL ++;
+	if(cnt_UDCUL != 65535)
+		cnt_UDCUL ++;
+	if(cnt_IAOL != 65535)
+		cnt_IAOL ++;
+	if(cnt_IBOL != 65535)
+		cnt_IBOL ++;
+	if(cnt_ICOL != 65535)
+		cnt_ICOL ++;
 
 	if (cnt_mainIsr < 10000)
 		cnt_mainIsr++;
@@ -597,6 +663,77 @@ interrupt void mainISR(void) {
 	if(cnt_mainIsr%5000 == 2500)
 		SCIB_RX_RSL();
 
+	// acknowledge the ADC interrupt
+	HAL_acqAdcInt(halHandle, ADC_IntNumber_1);
+
+	// convert the ADC data
+	HAL_readAdcData(halHandle, &gAdcData);
+
+//	VDcTrs = gAdcData.dcBus;
+//
+//	VDcFlt = 0.9*VDcFlt + 0.1*VDcTrs;
+//
+//	gAdcData.dcBus = VDcFlt;
+
+	gHallC = HAL_readGpio(halHandle,GPIO_Number_9);
+	gHallB = HAL_readGpio(halHandle,GPIO_Number_15);
+	gHallA = HAL_readGpio(halHandle,GPIO_Number_11);
+
+	gHall_GpioData = (~HAL_readGpio(halHandle,GPIO_Number_9) & 0x1)<<2;
+	gHall_GpioData += (~HAL_readGpio(halHandle,GPIO_Number_15) & 0x1)<<1;
+	gHall_GpioData += (~HAL_readGpio(halHandle,GPIO_Number_11) & 0x1)<<0;
+
+	HallACap1 = CAP_getCap1(halHandle->capHandle[0]);
+	HallACap2 = CAP_getCap2(halHandle->capHandle[0]);
+	HallBCap1 = CAP_getCap1(halHandle->capHandle[1]);
+	HallBCap2 = CAP_getCap2(halHandle->capHandle[1]);
+	HallCCap1 = CAP_getCap1(halHandle->capHandle[2]);
+	HallCCap2 = CAP_getCap2(halHandle->capHandle[2]);
+
+	estAngle = _IQtoF(EST_getAngle_pu(ctrlHandle->estHandle))*360.0;
+
+	/********************************protect**********************************/
+	if (gAdcData.dcBus > _IQ(1.3)) {
+		if (cnt_UDCOL > 5)
+			gFault |= BIT_UDCOL;
+	} else
+		cnt_UDCOL = 0;
+
+//	if (gAdcData.dcBus < _IQ(0.9)) {
+//		if (cnt_UDCUL > 5)
+//			gFault |= BIT_UDCUL;
+//	} else
+//		cnt_UDCUL = 0;
+
+	if ((gAdcData.I.value[0] > _IQ(1.0))||(gAdcData.I.value[0] < _IQ(-1.0))) {
+		if (cnt_IAOL > 5)
+			gFault |= BIT_IAOL;
+	} else
+		cnt_IAOL = 0;
+
+	if ((gAdcData.I.value[1] > _IQ(1.0))||(gAdcData.I.value[1] < _IQ(-1.0))) {
+		if (cnt_IBOL > 5)
+			gFault |= BIT_IBOL;
+	} else
+		cnt_IBOL = 0;
+
+	if ((gAdcData.I.value[2] > _IQ(1.0))||(gAdcData.I.value[2] < _IQ(-1.0))) {
+		if (cnt_ICOL > 5)
+			gFault |= BIT_ICOL;
+	} else
+		cnt_ICOL = 0;
+
+
+	/******************************************************************/
+
+	/******************************inverter************************************/
+	// run the controller
+	CTRL_run(ctrlHandle, halHandle, &gAdcData, &gPwmData);
+
+	// write the PWM compare values
+	HAL_writePwmData(halHandle, &gPwmData);
+//  HAL_writePwmData(halHandle,&gPwmDataSim);
+
 	// setup the controller
 	CTRL_setup(ctrlHandle);
 	/**********************************************************************/
@@ -605,9 +742,13 @@ interrupt void mainISR(void) {
 	chopper();
 	/**********************************************************************/
 
-	// write the PWM compare values
-	HAL_writePwmData(halHandle, &gPwmData);
-//  HAL_writePwmData(halHandle,&gPwmDataSim);
+	// read the timer 1 value and update the CPU usage module
+	timer1Cnt = HAL_readTimerCnt(halHandle, 1);
+	CPU_USAGE_updateCnts(cpu_usageHandle, timer1Cnt);
+
+	// run the CPU usage module
+	CPU_USAGE_run(cpu_usageHandle);
+
 
 	return;
 } // end of mainISR() function
@@ -662,11 +803,21 @@ void updateIqRef(CTRL_Handle handle) {
 
 	if(RtTorque>20.0)
 		RtTorque = 20.0;
+	else if(RtTorque<0.0)
+		RtTorque = 0.0;
+
+//	_iq iq_ref_A = _IQ(-RtTorque/(1.5*USER_MOTOR_NUM_POLE_PAIRS*USER_MOTOR_RATED_FLUX/MATH_TWO_PI));
+	_iq iq_ref_A = _IQ(RtTorque/(1.5*USER_MOTOR_NUM_POLE_PAIRS*USER_MOTOR_RATED_FLUX/MATH_TWO_PI));
+	_iq iq_step_A = 0.01;
+
+	if((gMotorVars.IqRef_A + iq_step_A)<iq_ref_A)
+		gMotorVars.IqRef_A += iq_step_A;
+	else if((gMotorVars.IqRef_A - iq_step_A)>iq_ref_A)
+		gMotorVars.IqRef_A -= iq_step_A;
 
 	gMotorVars.IqRef_A = _IQ(-RtTorque/(1.5*USER_MOTOR_NUM_POLE_PAIRS*USER_MOTOR_RATED_FLUX/MATH_TWO_PI));
 
 //	iq_ref = _IQmpy(iq_ref_A,_IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
-
 
 	_iq iq_ref = _IQmpy(gMotorVars.IqRef_A,_IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
 
@@ -684,6 +835,26 @@ void updateIqRef(CTRL_Handle handle) {
 
 	return;
 } // end of updateIqRef() function
+
+void updateCPUusage(void)
+{
+  uint32_t minDeltaCntObserved = CPU_USAGE_getMinDeltaCntObserved(cpu_usageHandle);
+  uint32_t avgDeltaCntObserved = CPU_USAGE_getAvgDeltaCntObserved(cpu_usageHandle);
+  uint32_t maxDeltaCntObserved = CPU_USAGE_getMaxDeltaCntObserved(cpu_usageHandle);
+  uint16_t pwmPeriod = HAL_readPwmPeriod(halHandle,PWM_Number_1);
+  float_t  cpu_usage_den = (float_t)pwmPeriod * (float_t)USER_NUM_PWM_TICKS_PER_ISR_TICK * 2.0;
+
+  // calculate the minimum cpu usage percentage
+  gCpuUsagePercentageMin = (float_t)minDeltaCntObserved / cpu_usage_den * 100.0;
+
+  // calculate the average cpu usage percentage
+  gCpuUsagePercentageAvg = (float_t)avgDeltaCntObserved / cpu_usage_den * 100.0;
+
+  // calculate the maximum cpu usage percentage
+  gCpuUsagePercentageMax = (float_t)maxDeltaCntObserved / cpu_usage_den * 100.0;
+
+  return;
+} // end of updateCPUusage() function
 
 //@} //defgroup
 // end of file

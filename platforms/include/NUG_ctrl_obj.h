@@ -78,16 +78,6 @@ extern "C" {
 // **************************************************************************
 // the typedefs
 
-////! \brief Enumeration for the controller states
-////!
-//typedef enum {
-//  CTRL_State_Error=0,           //!< the controller error state
-//  CTRL_State_Idle,              //!< the controller idle state
-//  CTRL_State_OffLine,           //!< the controller offline state
-//  CTRL_State_OnLine,            //!< the controller online state
-//  CTRL_numStates                //!< the number of controller states
-//} CTRL_State_e;
-
 
 //! \brief Enumeration for the error codes
 //!
