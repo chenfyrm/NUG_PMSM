@@ -660,13 +660,14 @@ HAL_Handle HAL_init(void *pMemory,const size_t numBytes)
 
   // initialize the SPI handles
   obj->spiAHandle = SPI_init((void *)SPIA_BASE_ADDR,sizeof(SPI_Obj));
-  obj->spiBHandle = SPI_init((void *)SPIB_BASE_ADDR,sizeof(SPI_Obj));
+//  obj->spiBHandle = SPI_init((void *)SPIB_BASE_ADDR,sizeof(SPI_Obj));
 
   // initialize the SCI handle
   obj->sciBHandle = SCI_init((void *)SCIB_BASE_ADDR,sizeof(SCI_Obj));
 
   // initialize the QEP handle
   obj->qepHandle[0] = QEP_init((void*)QEP1_BASE_ADDR,sizeof(QEP_Obj));
+  obj->qepHandle[1] = QEP_init((void*)QEP2_BASE_ADDR,sizeof(QEP_Obj));
 
   // initialize the CAP handles
   obj->capHandle[0] = CAP_init((void*)CAP1_BASE_ADDR,sizeof(CAP_Obj));
@@ -716,7 +717,6 @@ HAL_Handle HAL_init(void *pMemory,const size_t numBytes)
 
   // initialize the chopper current offset estimator handle
   obj->offsetHandle_IChop = OFFSET_init(&obj->offset_IChop,sizeof(OFFSET_Obj));
-
 
   return(handle);
 } // end of HAL_init() function
@@ -770,10 +770,12 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
 
 
   // setup the clocks
+  // low speed clock sysclockout/4; xclockout sysclockout/1
   HAL_setupClks(handle);
 
 
   // Setup the PLL
+  // internal oscillator 1 10MHz; div 18; divsel 2;sysclockout 90MHz
   HAL_setupPll(handle,PLL_ClkFreq_90_MHz);
 
 
@@ -815,8 +817,8 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
   HAL_setupSpiA(handle);
 
 
-  // setup the spiB
-  HAL_setupSpiB(handle);
+//  // setup the spiB
+//  HAL_setupSpiB(handle);
 
   // setup the sciB
   HAL_setupSciB(handle);
@@ -838,7 +840,7 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
   HAL_setupGate(handle);
 
 
-  // set the default current bias
+  // set the default current bias 偏移至中间值
  {
    uint_least8_t cnt;
    _iq bias = _IQ12mpy(ADC_dataBias,_IQ(pUserParams->current_sf));
@@ -847,6 +849,9 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
      {
        HAL_setBias(handle,HAL_SensorType_Current,cnt,bias);
      }
+
+   obj->adcBias.IDcLk = bias;
+   obj->adcBias.IChop = bias;
  }
 
 
@@ -858,7 +863,7 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
  }
 
 
-  // set the default voltage bias
+  // set the default voltage bias 无偏移
  {
    uint_least8_t cnt;
    _iq bias = _IQ(0.0);
@@ -1060,7 +1065,6 @@ void HAL_setupGate(HAL_Handle handle)
 {
   HAL_Obj *obj = (HAL_Obj *)handle;
 
-//  DRV8301_setSpiHandle(obj->drv8301Handle,obj->spiBHandle);
   DRV8301_setSpiHandle(obj->drv8301Handle,obj->spiAHandle);
   DRV8301_setGpioHandle(obj->drv8301Handle,obj->gpioHandle);
   DRV8301_setGpioNumber(obj->drv8301Handle,GPIO_Number_51);
@@ -1092,45 +1096,30 @@ void HAL_setupGpios(HAL_Handle handle)
   // PWM6
   GPIO_setMode(obj->gpioHandle,GPIO_Number_5,GPIO_5_Mode_EPWM3B);
 
-//   PWM-DAC4
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_6,GPIO_6_Mode_EPWM4A);
   //右电磁阀
   GPIO_setMode(obj->gpioHandle,GPIO_Number_6,GPIO_6_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_6,GPIO_Direction_Output);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_6);
 
-//  // Push Button SW2
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_7,GPIO_7_Mode_GeneralPurpose);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_7,GPIO_Direction_Input);
   //左电磁阀
   GPIO_setMode(obj->gpioHandle,GPIO_Number_7,GPIO_7_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_7,GPIO_Direction_Output);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_7);
 
-//  // ADCSOCAO_NOT or PWM-DAC3
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_8,GPIO_8_Mode_EPWM5A);
   //机械臂接口判断
   GPIO_setMode(obj->gpioHandle,GPIO_Number_8,GPIO_8_Mode_GeneralPurpose);
 
-//  // Push Button SW1
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_9,GPIO_9_Mode_GeneralPurpose);
   //HALL C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_9,GPIO_9_Mode_ECAP3);
 
-//  // PWM-DAC1
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_10,GPIO_10_Mode_EPWM6A);
-  //风扇0 1
+  //风扇0 1 开关
   GPIO_setMode(obj->gpioHandle,GPIO_Number_10,GPIO_10_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_10,GPIO_Direction_Output);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_10); //控制未知
 
-//  // PWM-DAC2
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_11,GPIO_11_Mode_EPWM6B);
   //HALL A
   GPIO_setMode(obj->gpioHandle,GPIO_Number_11,GPIO_11_Mode_ECAP1);
 
-//  // DRV8301-LED1
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_12,GPIO_12_Mode_GeneralPurpose);
   //I2C 控制芯片控制
   GPIO_setMode(obj->gpioHandle,GPIO_Number_12,GPIO_12_Mode_GeneralPurpose);
 
@@ -1140,8 +1129,6 @@ void HAL_setupGpios(HAL_Handle handle)
   // FAULTn
   GPIO_setMode(obj->gpioHandle,GPIO_Number_14,GPIO_14_Mode_TZ3_NOT);
 
-//  // LED2
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_15,GPIO_15_Mode_GeneralPurpose);
   //HALL B
   GPIO_setMode(obj->gpioHandle,GPIO_Number_15,GPIO_15_Mode_ECAP2);
 
@@ -1150,94 +1137,64 @@ void HAL_setupGpios(HAL_Handle handle)
 
   // SPI-SIMO
   GPIO_setMode(obj->gpioHandle,GPIO_Number_16,GPIO_16_Mode_SPISIMOA);
-//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_16, GPIO_Pullup_Enable);
 
   // SPI-SOMI
   GPIO_setMode(obj->gpioHandle,GPIO_Number_17,GPIO_17_Mode_SPISOMIA);
-//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_17, GPIO_Pullup_Enable);
 
   // SPI-CLK
   GPIO_setMode(obj->gpioHandle,GPIO_Number_18,GPIO_18_Mode_SPICLKA);
-//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_18, GPIO_Pullup_Enable);
 
   // SPI-STE
   GPIO_setMode(obj->gpioHandle,GPIO_Number_19,GPIO_19_Mode_SPISTEA_NOT);
-//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_19, GPIO_Pullup_Enable);
 
   // EQEP1A
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_GeneralPurpose);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_EQEP1A);
 
   // EQEP1B
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_GeneralPurpose);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_EQEP1B);
 
-//  // STATUS
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_22,GPIO_22_Mode_GeneralPurpose);
   //48V电源通信 SCITXDB
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_22,GPIO_Pullup_Enable);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_22,GPIO_22_Mode_SCITXDB);
 
-//  // EQEP1I
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_23,GPIO_23_Mode_GeneralPurpose);
   //48V电源通信 SCIRXDB
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_23,GPIO_Pullup_Enable);
   GPIO_setQualification(obj->gpioHandle,GPIO_Number_23,GPIO_Qual_ASync);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_23,GPIO_23_Mode_SCIRXDB);
 
 
-//  // SPI SIMO B
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_24,GPIO_24_Mode_SPISIMOB);
+  // EQEP2A
   GPIO_setMode(obj->gpioHandle,GPIO_Number_24,GPIO_24_Mode_EQEP2A);
 
-//  // SPI SOMI B
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_25,GPIO_25_Mode_SPISOMIB);
+  // EQEP2B
   GPIO_setMode(obj->gpioHandle,GPIO_Number_25,GPIO_25_Mode_EQEP2B);
 
-//  // SPI CLK B
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_26,GPIO_26_Mode_SPICLKB);
   //USB
   GPIO_setMode(obj->gpioHandle,GPIO_Number_26,GPIO_26_Mode_GeneralPurpose);
 
-//  // SPI CSn B
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_27,GPIO_27_Mode_SPISTEB_NOT);
   //USB
   GPIO_setMode(obj->gpioHandle,GPIO_Number_27,GPIO_27_Mode_GeneralPurpose);
 
-  // No Connection
   //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_28,GPIO_28_Mode_SDDA);
 
-  // No Connection
   //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_29,GPIO_29_Mode_SCLA);
 
-  // No Connection
   //唤醒按钮
   GPIO_setMode(obj->gpioHandle,GPIO_Number_30,GPIO_30_Mode_GeneralPurpose);
 
-//  // ControlCARD LED2
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_31,GPIO_31_Mode_GeneralPurpose);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_31,GPIO_Direction_Output);
-//  GPIO_setLow(obj->gpioHandle,GPIO_Number_31);
   //蓝牙
   GPIO_setMode(obj->gpioHandle,GPIO_Number_31,GPIO_31_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_31,GPIO_Direction_Output);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_31);
 
-
-  // No Connection
   //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_32,GPIO_32_Mode_SDAA);
 
-  // No Connection
   //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_33,GPIO_33_Mode_SCLA);
 
-//  // ControlCARD LED3
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_34,GPIO_34_Mode_GeneralPurpose);
-//  GPIO_setLow(obj->gpioHandle,GPIO_Number_34);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_34,GPIO_Direction_Output);
     //触摸屏
   GPIO_setMode(obj->gpioHandle,GPIO_Number_34,GPIO_34_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_34,GPIO_Direction_Output);
@@ -1248,50 +1205,34 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setMode(obj->gpioHandle,GPIO_Number_37,GPIO_37_Mode_JTAG_TDO);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_38,GPIO_38_Mode_JTAG_TCK);
 
-//  // DRV8301 Enable
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_39,GPIO_39_Mode_GeneralPurpose);
   //LED2
   GPIO_setMode(obj->gpioHandle,GPIO_Number_39,GPIO_39_Mode_GeneralPurpose);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_39);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_39,GPIO_Direction_Output);
 
-//  // CAP1
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_40,GPIO_40_Mode_GeneralPurpose);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_40,GPIO_Direction_Input);
-   //烧录
+   // JTAG
   GPIO_setMode(obj->gpioHandle,GPIO_Number_40,GPIO_40_Mode_GeneralPurpose);
 
 
-//  // CAP2
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_41,GPIO_41_Mode_GeneralPurpose);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_41,GPIO_Direction_Input);
-   //烧录
+  // JTAG
   GPIO_setMode(obj->gpioHandle,GPIO_Number_41,GPIO_41_Mode_GeneralPurpose);
 
 
-//  // CAP3
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_42,GPIO_42_Mode_GeneralPurpose);
-//  GPIO_setDirection(obj->gpioHandle,GPIO_Number_42,GPIO_Direction_Input);
-    //斩波使能 软硬件或
+  //斩波使能  与硬件逻辑或
   GPIO_setMode(obj->gpioHandle,GPIO_Number_42,GPIO_42_Mode_GeneralPurpose);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_42);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_42,GPIO_Direction_Output);
 
-//  // DC_CAL
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_43,GPIO_43_Mode_GeneralPurpose);
-  //风扇 电源
+  //风扇 电源 芯片使能   低使能
   GPIO_setMode(obj->gpioHandle,GPIO_Number_43,GPIO_43_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_43,GPIO_Direction_Output);
+  GPIO_setLow(obj->gpioHandle,GPIO_Number_43);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_44,GPIO_44_Mode_GeneralPurpose);
   //LED4
   GPIO_setMode(obj->gpioHandle,GPIO_Number_44,GPIO_44_Mode_GeneralPurpose);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_44);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_44,GPIO_Direction_Output);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_50,GPIO_50_Mode_GeneralPurpose);
   //蓝牙
   GPIO_setMode(obj->gpioHandle,GPIO_Number_50,GPIO_50_Mode_GeneralPurpose);
 
@@ -1300,41 +1241,27 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setLow(obj->gpioHandle,GPIO_Number_51);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_51,GPIO_Direction_Output);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_52,GPIO_52_Mode_GeneralPurpose);
   //USB 电源
   GPIO_setMode(obj->gpioHandle,GPIO_Number_52,GPIO_52_Mode_GeneralPurpose);
 
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_53,GPIO_53_Mode_GeneralPurpose);
   //48V电源
   GPIO_setMode(obj->gpioHandle,GPIO_Number_53,GPIO_53_Mode_GeneralPurpose);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_53);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_53,GPIO_Direction_Output);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_54,GPIO_54_Mode_GeneralPurpose);
+//
   GPIO_setMode(obj->gpioHandle,GPIO_Number_54,GPIO_54_Mode_EQEP2A);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_55,GPIO_55_Mode_GeneralPurpose);
+//
   GPIO_setMode(obj->gpioHandle,GPIO_Number_55,GPIO_55_Mode_EQEP2B);
 
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_56,GPIO_56_Mode_GeneralPurpose);
   //风扇0 反馈
   GPIO_setMode(obj->gpioHandle,GPIO_Number_56,GPIO_56_Mode_GeneralPurpose);
 
-
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_57,GPIO_57_Mode_GeneralPurpose);
   //风扇1 反馈
   GPIO_setMode(obj->gpioHandle,GPIO_Number_57,GPIO_57_Mode_GeneralPurpose);
 
-
-//  // No Connection
-//  GPIO_setMode(obj->gpioHandle,GPIO_Number_58,GPIO_58_Mode_GeneralPurpose);
   //I2C 总线控制器复位
   GPIO_setMode(obj->gpioHandle,GPIO_Number_58,GPIO_58_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_58,GPIO_Direction_Output);
@@ -1493,8 +1420,8 @@ void HAL_setupPwms(HAL_Handle handle,
       // setup the Time-Base Control Register (TBCTL)
       PWM_setCounterMode(obj->pwmHandle[cnt],PWM_CounterMode_UpDown);
       PWM_disableCounterLoad(obj->pwmHandle[cnt]);
-      PWM_setPeriodLoad(obj->pwmHandle[cnt],PWM_PeriodLoad_Immediate);//原来是PWM_PeriodLoad_Immediate
-      PWM_setSyncMode(obj->pwmHandle[cnt],PWM_SyncMode_EPWMxSYNC);//原来是PWM_SyncMode_EPWMxSYNC
+      PWM_setPeriodLoad(obj->pwmHandle[cnt],PWM_PeriodLoad_Immediate);
+      PWM_setSyncMode(obj->pwmHandle[cnt],PWM_SyncMode_EPWMxSYNC);
       PWM_setHighSpeedClkDiv(obj->pwmHandle[cnt],PWM_HspClkDiv_by_1);
       PWM_setClkDiv(obj->pwmHandle[cnt],PWM_ClkDiv_by_1);
       PWM_setPhaseDir(obj->pwmHandle[cnt],PWM_PhaseDir_CountUp);
@@ -1511,24 +1438,20 @@ void HAL_setupPwms(HAL_Handle handle,
       PWM_setPeriod(obj->pwmHandle[cnt],0);
 
       // setup the Counter-Compare Control Register (CMPCTL)
-      PWM_setLoadMode_CmpA(obj->pwmHandle[cnt],PWM_LoadMode_Zero);//原来是PWM_LoadMode_Zero
-      PWM_setLoadMode_CmpB(obj->pwmHandle[cnt],PWM_LoadMode_Zero);//原来是PWM_LoadMode_Zero
-      PWM_setShadowMode_CmpA(obj->pwmHandle[cnt],PWM_ShadowMode_Shadow);//原来是PWM_ShadowMode_Shadow
-      PWM_setShadowMode_CmpB(obj->pwmHandle[cnt],PWM_ShadowMode_Immediate);//原来是PWM_ShadowMode_Immediate
+      PWM_setLoadMode_CmpA(obj->pwmHandle[cnt],PWM_LoadMode_Zero);
+      PWM_setLoadMode_CmpB(obj->pwmHandle[cnt],PWM_LoadMode_Zero);
+      PWM_setShadowMode_CmpA(obj->pwmHandle[cnt],PWM_ShadowMode_Shadow);
+      PWM_setShadowMode_CmpB(obj->pwmHandle[cnt],PWM_ShadowMode_Immediate);
 
       // setup the Action-Qualifier Output A Register (AQCTLA) 
       PWM_setActionQual_CntUp_CmpA_PwmA(obj->pwmHandle[cnt],PWM_ActionQual_Set);
       PWM_setActionQual_CntDown_CmpA_PwmA(obj->pwmHandle[cnt],PWM_ActionQual_Clear);
 
-//      // setup the Action-Qualifier Output B Register (AQCTLB) 设置独立六路
-//      PWM_setActionQual_CntUp_CmpB_PwmB(obj->pwmHandle[cnt],PWM_ActionQual_Set);
-//      PWM_setActionQual_CntDown_CmpB_PwmB(obj->pwmHandle[cnt],PWM_ActionQual_Clear);
-
       // setup the Dead-Band Generator Control Register (DBCTL)
       PWM_setDeadBandOutputMode(obj->pwmHandle[cnt],PWM_DeadBandOutputMode_EPWMxA_Rising_EPWMxB_Falling);
       PWM_setDeadBandPolarity(obj->pwmHandle[cnt],PWM_DeadBandPolarity_EPWMxB_Inverted);
 
-      // setup the Dead-Band Rising Edge Delay Register (DBRED)
+      // setup the Dead-Band Rising Edge Delay Register (DBRED) 驱动芯片设置了死区
       PWM_setDeadBandRisingEdgeDelay(obj->pwmHandle[cnt],HAL_PWM_DBRED_CNT);
 
       // setup the Dead-Band Falling Edge Delay Register (DBFED)
@@ -1576,15 +1499,6 @@ void HAL_setupPwms(HAL_Handle handle,
   PWM_setPeriod(obj->pwmHandle[PWM_Number_1],halfPeriod_cycles);
   PWM_setPeriod(obj->pwmHandle[PWM_Number_2],halfPeriod_cycles);
   PWM_setPeriod(obj->pwmHandle[PWM_Number_3],halfPeriod_cycles);
-
-  //增加CMP的初始化
-  PWM_write_CmpA(obj->pwmHandle[0],halfPeriod_cycles * 9 / 10);// period * 9 / 10
-  PWM_write_CmpB(obj->pwmHandle[0],halfPeriod_cycles);
-  PWM_write_CmpA(obj->pwmHandle[1],halfPeriod_cycles);
-  PWM_write_CmpB(obj->pwmHandle[1],halfPeriod_cycles);
-  PWM_write_CmpA(obj->pwmHandle[2],halfPeriod_cycles);
-  PWM_write_CmpB(obj->pwmHandle[2],halfPeriod_cycles);
-
 
   // last step to synchronize the pwms
   CLK_enableTbClockSync(obj->clkHandle);
@@ -1678,32 +1592,32 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
 //  return;
 //}  // end of HAL_setupSpiA() function
 
-void HAL_setupSpiB(HAL_Handle handle)
-{
-  HAL_Obj   *obj = (HAL_Obj *)handle;
-
-  SPI_reset(obj->spiBHandle);
-  SPI_setClkPolarity(obj->spiBHandle,SPI_ClkPolarity_OutputRisingEdge_InputFallingEdge);
-  SPI_disableLoopBack(obj->spiBHandle);
-  SPI_setCharLength(obj->spiBHandle,SPI_CharLength_16_Bits);
-
-  SPI_setMode(obj->spiBHandle,SPI_Mode_Slave);
-  SPI_setClkPhase(obj->spiBHandle,SPI_ClkPhase_Delayed);
-  SPI_enableTx(obj->spiBHandle);
-
-  SPI_enableChannels(obj->spiBHandle);
-  SPI_enableTxFifoEnh(obj->spiBHandle);
-  SPI_enableTxFifo(obj->spiBHandle);
-  SPI_setTxDelay(obj->spiBHandle,0);
-  SPI_clearTxFifoInt(obj->spiBHandle);
-  SPI_enableRxFifo(obj->spiBHandle);
-
-//not needed for slave mode  SPI_setBaudRate(obj->spiBHandle,(SPI_BaudRate_e)(0x000d));
-  SPI_setSuspend(obj->spiBHandle,SPI_TxSuspend_free);
-  SPI_enable(obj->spiBHandle);
-
-  return;
-}  // end of HAL_setupSpiA() function
+//void HAL_setupSpiB(HAL_Handle handle)
+//{
+//  HAL_Obj   *obj = (HAL_Obj *)handle;
+//
+//  SPI_reset(obj->spiBHandle);
+//  SPI_setClkPolarity(obj->spiBHandle,SPI_ClkPolarity_OutputRisingEdge_InputFallingEdge);
+//  SPI_disableLoopBack(obj->spiBHandle);
+//  SPI_setCharLength(obj->spiBHandle,SPI_CharLength_16_Bits);
+//
+//  SPI_setMode(obj->spiBHandle,SPI_Mode_Slave);
+//  SPI_setClkPhase(obj->spiBHandle,SPI_ClkPhase_Delayed);
+//  SPI_enableTx(obj->spiBHandle);
+//
+//  SPI_enableChannels(obj->spiBHandle);
+//  SPI_enableTxFifoEnh(obj->spiBHandle);
+//  SPI_enableTxFifo(obj->spiBHandle);
+//  SPI_setTxDelay(obj->spiBHandle,0);
+//  SPI_clearTxFifoInt(obj->spiBHandle);
+//  SPI_enableRxFifo(obj->spiBHandle);
+//
+////not needed for slave mode  SPI_setBaudRate(obj->spiBHandle,(SPI_BaudRate_e)(0x000d));
+//  SPI_setSuspend(obj->spiBHandle,SPI_TxSuspend_free);
+//  SPI_enable(obj->spiBHandle);
+//
+//  return;
+//}  // end of HAL_setupSpiA() function
 
 
 //void HAL_setupSpiB(HAL_Handle handle)
@@ -1787,14 +1701,14 @@ void HAL_setupCap(HAL_Handle handle)
 		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
 		CAP_setCapContinuous(obj->capHandle[i]);
 		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Disable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Disable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Disable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Disable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
+		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Disable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Disable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Disable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Disable);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
 		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);

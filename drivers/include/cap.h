@@ -378,6 +378,20 @@ static inline void CAP_clearInt(CAP_Handle capHandle, const CAP_Int_Type_e intTy
     return;
 }
 
+//! \brief     Gets capture (CAP) interrupt flag
+//! \param[in] capHandle  The capture (CAP) object handle
+//! \param[in] intType  The capture interrupt to be getted
+static inline bool CAP_getInt(CAP_Handle capHandle, const CAP_Int_Type_e intType)
+{
+    CAP_Obj *cap = (CAP_Obj *)capHandle;
+    bool intFlag = 0;
+
+    // get the interupt flag
+    intFlag = cap->ECEFLG & intType;
+
+    return (intFlag);
+}
+
 //! \brief     Disables loading of CAP1-4 on capture event
 //! \param[in] capHandle  The capture (CAP) object handle
 extern void CAP_disableCaptureLoad(CAP_Handle capHandle);

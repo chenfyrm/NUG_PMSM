@@ -142,9 +142,13 @@ typedef struct _HAL_PwmData_t_
 //!
 typedef struct _HAL_Obj_
 {
+  WDOG_Handle   wdogHandle;       //!< the watchdog handle
+
   ADC_Handle    adcHandle;        //!< the ADC handle
 
   CLK_Handle    clkHandle;        //!< the clock handle
+
+  CPU_Handle    cpuHandle;        //!< the CPU handle
 
   FLASH_Handle  flashHandle;      //!< the flash handle
 
@@ -156,6 +160,15 @@ typedef struct _HAL_Obj_
 
   PLL_Handle    pllHandle;        //!< the PLL handle
 
+  SPI_Handle    spiAHandle;       //!< the SPI handle
+//  SPI_Handle    spiBHandle;       //!< the SPI handle
+
+  SCI_Handle	sciBHandle;		  //!< the SCI handle
+
+  QEP_Handle    qepHandle[2];      //!< the QEP handle
+
+  CAP_Handle	capHandle[3];		//!< the CAP handle
+
   PWM_Handle    pwmHandle[3];     //<! the PWM handles
 
 //  PWMDAC_Handle pwmDacHandle[3];  //<! the PWMDAC handles
@@ -163,19 +176,6 @@ typedef struct _HAL_Obj_
   PWR_Handle    pwrHandle;        //<! the power handle
 
   TIMER_Handle  timerHandle[3];   //<! the timer handles
-
-  WDOG_Handle   wdogHandle;       //!< the watchdog handle
-
-  SPI_Handle    spiAHandle;       //!< the SPI handle
-  SPI_Handle    spiBHandle;       //!< the SPI handle
-
-  SCI_Handle	sciBHandle;
-
-  CAP_Handle	capHandle[3];		//!< the CAP handle
-
-  QEP_Handle    qepHandle[2];      //!< the QEP handle
-
-  CPU_Handle    cpuHandle;        //!< the CPU handle
 
   DRV8301_Handle drv8301Handle;   //!< the drv8301 interface handle
   DRV8301_Obj    drv8301;         //!< the drv8301 interface object
@@ -204,8 +204,6 @@ typedef struct _HAL_Obj_
 
   uint_least8_t numCurrentSensors; //!< the number of current sensors
   uint_least8_t numVoltageSensors; //!< the number of voltage sensors
-
-
 
 } HAL_Obj;
 

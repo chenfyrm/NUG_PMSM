@@ -48,6 +48,8 @@
 #include "est_Flux_states.h"
 #include "est_Ls_states.h"
 #include "est_Rs_states.h"
+#include "est_Rr_states.h"
+#include "est_Traj_states.h"
 
 
 

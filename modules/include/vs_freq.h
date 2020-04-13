@@ -16,7 +16,7 @@
 
 
 // modules
-#include "types.h"
+
 
 #include "user_math.h"
 
@@ -128,10 +128,12 @@ static inline void VS_FREQ_run(VS_FREQ_Handle handle,const _iq Freq_pu)
 //! \param[in] iqFullScaleFreq_Hz     The full scale frequency for IQ variable, Hz
 //! \param[in] iqFullScaleVoltage_V   The full scale voltage for the IQ variable, V
 //! \param[in] maxVsMag_pu			  The decimation between PWM cycles and the ISR cycle
+//! \param[in] MaxFreq				  The maxmum frequency for IQ variable, Hz
 extern void VS_FREQ_setParams(VS_FREQ_Handle handle,
         					float_t iqFullScaleFreq_Hz,
         					float_t iqFullScaleVoltage_V,
-							float_t maxVsMag_pu);
+							float_t maxVsMag_pu,
+							_iq MaxFreq);
 
 //! \brief     Sets the parameters
 //! \param[in] handle               The volts/hertz profile (VS_FREQ) handle

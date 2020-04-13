@@ -38,9 +38,9 @@
 
 // **************************************************************************
 // the includes
-#include "user_module.h"
 
-#include "NUG_user.h"
+#include "vs_freq.h"
+
 
 
 // **************************************************************************
@@ -71,14 +71,15 @@ extern VS_FREQ_Handle VS_FREQ_init(void *pMemory,const size_t numBytes)
 extern void VS_FREQ_setParams(VS_FREQ_Handle handle,
         					float_t iqFullScaleFreq_Hz,
         					float_t iqFullScaleVoltage_V,
-							float_t maxVsMag_pu)
+							float_t maxVsMag_pu,
+							_iq MaxFreq)
 {
   VS_FREQ_Obj *obj = (VS_FREQ_Obj *)handle;
 
   obj->iqFullScaleFreq_Hz = iqFullScaleFreq_Hz;
   obj->iqFullScaleVoltage_V = iqFullScaleVoltage_V;
   obj->maxVsMag_pu = maxVsMag_pu;
-  obj->MaxFreq = _IQ(USER_MOTOR_FREQ_MAX/iqFullScaleFreq_Hz);
+  obj->MaxFreq = MaxFreq;
 
   return;
 } // end of VS_FREQ_setParams() function

@@ -10,9 +10,8 @@
 
 // **************************************************************************
 // the includes
-#include <math.h>
 
-#include "types.h"
+#include "user_math.h"
 
 
 //!

@@ -53,7 +53,6 @@
 // **************************************************************************
 // the includes
 
-#include "types.h"
 #include "user_math.h"
 #include "userParams.h"
 

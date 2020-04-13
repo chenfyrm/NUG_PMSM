@@ -42,7 +42,17 @@
 // **************************************************************************
 // the includes
 
-#include "NUG_main.h"
+#include <math.h>
+
+// modules
+
+#include "cpu_usage.h"
+
+// platforms
+
+#include "NUG_user.h"
+#include "NUG_hal.h"
+#include "NUG_ctrl.h"
 
 
 #ifdef FLASH
@@ -65,6 +75,178 @@
 #define BIT_UBOL			(1<<6)
 #define BIT_UCOL			(1<<7)
 
+//! \brief Defines the number of main iterations before global variables are updated
+//!
+#define NUM_MAIN_TICKS_FOR_GLOBAL_VARIABLE_UPDATE  1
+
+//! \brief Defines the speed acceleration scale factor.
+//!
+#define MAX_ACCEL_KRPMPS_SF  _IQ(USER_MOTOR_NUM_POLE_PAIRS*1000.0/USER_TRAJ_FREQ_Hz/USER_IQ_FULL_SCALE_FREQ_Hz/60.0)
+
+//! \brief Initialization values of global variables
+//!
+#define MOTOR_Vars_INIT {false, \
+                         false, \
+                         false, \
+                         true, \
+                         false, \
+                         false, \
+                         true, \
+                         true, \
+                         false, \
+                         false, \
+						 \
+						 false, \
+						 false, \
+						 false, \
+						 \
+                         CTRL_State_Idle, \
+                         EST_State_Idle, \
+                         USER_ErrorCode_NoError, \
+                         {0,CTRL_TargetProc_Unknown,0,0}, \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.1), \
+                         _IQ(0.0), \
+                         _IQ(0.2), \
+                         _IQ(0.0), \
+                         _IQ(USER_MAX_VS_MAG_PU), \
+                         _IQ(0.1 * USER_MOTOR_MAX_CURRENT), \
+                         400, \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         0.0, \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         0.0, \
+                         0.0, \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.8 * USER_MAX_VS_MAG_PU), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         _IQ(0.0), \
+                         {0,0,0}, \
+                         {0,0,0}, \
+						 \
+						 _IQ(0.6), \
+						 _IQ(0.0), \
+                         _IQ(0.0), \
+						 _IQ(0.0), \
+						 _IQ(0.0), \
+						 _IQ(0.0), \
+						 _IQ(0.0), \
+						 \
+						 _IQ(0.0), \
+						 _IQ(0.0), \
+						 _IQ(0.0), \
+						 _IQ(0.0)  \
+}
+
+// **************************************************************************
+// the typedefs
+
+typedef struct _MOTOR_Vars_t_
+{
+  bool Flag_enableSys;
+  bool Flag_Run_Identify;
+  bool Flag_MotorIdentified;
+  bool Flag_enableForceAngle;
+  bool Flag_enableFieldWeakening;
+  bool Flag_enableRsRecalc;
+  bool Flag_enableUserParams;
+  bool Flag_enableOffsetcalc;
+  bool Flag_enablePowerWarp;
+  bool Flag_enableSpeedCtrl;
+
+  bool Flag_enableRun;
+  bool Flag_RunState;
+  bool Flag_enableFlyingStart;
+
+  CTRL_State_e CtrlState;
+  EST_State_e EstState;
+
+  USER_ErrorCode_e UserErrorCode;
+
+  CTRL_Version CtrlVersion;
+
+  _iq IdRef_A;
+  _iq IqRef_A;
+  _iq SpeedRef_pu;
+  _iq SpeedRef_krpm;
+  _iq SpeedTraj_krpm;
+  _iq MaxAccel_krpmps;
+  _iq Speed_krpm;
+  _iq OverModulation;
+  _iq RsOnLineCurrent_A;
+  _iq SvgenMaxModulation_ticks;
+  _iq Flux_Wb;
+  _iq Torque_Nm;
+
+  float_t MagnCurr_A;
+  float_t Rr_Ohm;
+  float_t Rs_Ohm;
+  float_t RsOnLine_Ohm;
+  float_t Lsd_H;
+  float_t Lsq_H;
+  float_t Flux_VpHz;
+
+  float_t ipd_excFreq_Hz;
+  _iq     ipd_Kspd;
+  _iq     ipd_excMag_coarse_pu;
+  _iq     ipd_excMag_fine_pu;
+  float   ipd_waitTime_coarse_sec;
+  float   ipd_waitTime_fine_sec;
+
+  _iq Kp_spd;
+  _iq Ki_spd;
+
+  _iq Kp_Idq;
+  _iq Ki_Idq;
+
+  _iq Vd;
+  _iq Vq;
+  _iq Vs;
+  _iq VsRef;
+  _iq VdcBus_kV;
+
+  _iq Id_A;
+  _iq Iq_A;
+  _iq Is_A;
+
+  MATH_vec3 I_bias;
+  MATH_vec3 V_bias;
+
+  _iq SpeedSet_krpm;
+
+  _iq angle_sen_pu;
+  _iq angle_est_pu;
+  _iq speed_sen_pu;
+  _iq speed_est_pu;
+
+  _iq speedHigh_hall2fast_pu;
+  _iq speedLow_hall2fast_pu;
+  _iq IdSet_A;
+  _iq IqSet_A;
+  _iq IdRef_pu;
+  _iq IqRef_pu;
+}MOTOR_Vars_t;
+
 // **************************************************************************
 // the globals
 
@@ -84,6 +266,7 @@ uint_least16_t gCounter_updateGlobals = 0;
 
 bool Flag_Latch_softwareUpdate = true;
 
+/*************************************************************/
 HAL_Handle halHandle;
 
 CTRL_Handle ctrlHandle;
@@ -95,7 +278,7 @@ HAL_AdcData_t gAdcData;
 
 HAL_PwmData_t gPwmData = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
 //HAL_PwmData_t gPwmDataSim = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
-
+/*******************************************************************/
 
 volatile MOTOR_Vars_t gMotorVars = MOTOR_Vars_INIT;
 
@@ -174,160 +357,28 @@ uint32_t HallCCap2 = 0;
 uint32_t halfPrdPos = 0;
 uint32_t halfPrdNeg = 0;
 
+// **************************************************************************
+// the function prototypes
+
+// the interrupt function
+interrupt void mainISR(void);
+
+//
+void updateGlobalVariables_motor(CTRL_Handle handle);
+
+void updateIqRef(CTRL_Handle handle);
+
+void updateCPUusage(void);
+
+// the uart
 void SCIB_TX_PRE(void);
 void SCIB_TX(void);
 
 void SCIB_RX(void);
 void SCIB_RX_RSL(void);
-//void SCIB_RX_INIT(void);
 
+// the chopper
 void chopper(void);
-
-void updateCPUusage(void);
-
-
-//void SCIB_RX_INIT(void)
-//{
-//	HAL_Obj *obj = (HAL_Obj *)halHandle;
-//
-//	SCI_resetRxFifo(obj->sciBHandle);
-//	SCI_clearRxFifoOvf(obj->sciBHandle);
-//	SCI_enableRxFifo(obj->sciBHandle);
-//}
-
-void SCIB_TX_PRE(void){
-	uint16_t i;
-	uint16_t xor = 0;
-	uint16_t status = 0x55;
-	uint16_t request = 0xAA;
-	uint16_t id = 0x11;
-
-	if (txSta == 0){ //不在发送状态
-		TX[0] = 0x01; //目标地址
-		TX[1] = 0x0A; //帧长
-		TX[2] = 0x02; //功能码
-		TX[3] = status & 0xFF;
-		TX[4] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) >> 8 & 0xFF;
-		TX[5] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) & 0xFF;
-		TX[6] = request & 0xFF;
-		TX[7] = id >> 8 & 0xFF;
-		TX[8] = id & 0xFF;
-		for (i = 0; i < 9; i++) {
-			xor ^= TX[i];
-		}
-		TX[9] = xor;
-	}
-
-	txSta = 1;
-
-	SCI_resetTxFifo(halHandle->sciBHandle);
-	SCI_enableTxFifo(halHandle->sciBHandle);
-
-}
-
-void SCIB_TX(void) {
-
-	if(txSta == 1){
-		if(SCI_getTxFifoStatus(halHandle->sciBHandle) <= 1){
-			halHandle->sciBHandle->SCITXBUF = TX[txPos];
-			txPos++;
-		}
-
-		if(txPos>=10){
-			txSta = 0;
-			txPos = 0;
-		}
-	}
-}
-
-void SCIB_RX(void) {
-	uint16_t rxTmp = 0;
-
-//	if(rxSta == 1){
-		if (SCI_getRxFifoStatus(halHandle->sciBHandle) >= 1) {
-			rxTmp = halHandle->sciBHandle->SCIRXBUF & 0xFF;
-			cnt_Rx = 0;
-
-			if(flag1 == 0){
-				rxPos = 0;
-				if(rxTmp == 0x02)
-					flag1 = 1;
-			}else if (flag2 == 0){
-				rxPos++;
-				if(rxTmp == 0x0B)
-					flag2 = 1;
-				else
-					flag1 = 0;
-			}else if(flag3 == 0){
-				rxPos++;
-				if(rxTmp == 0x01)
-					flag3 = 1;
-				else
-					flag1 = 0;
-			}else
-				rxPos++;
-
-			if(flag1 == 0){
-				flag2 = 0;
-				flag3 = 0;
-				rxPos = 0;
-			}
-			else
-				RX[rxPos] = rxTmp;
-		}
-
-		if(rxPos>=10||cnt_Rx > 1000){
-			flag1 = 0;
-			flag2 = 0;
-			flag3 = 0;
-			rxPos = 0;
-			rxSta = 0;
-		}
-//	}
-}
-
-void SCIB_RX_RSL(void)
-{
-	uint16_t i = 0;
-	uint16_t xor = 0;
-
-
-	if(rxSta == 0){
-		for(i=0;i<10;i++)
-			xor ^=RX[i];
-
-		gXor = xor;
-
-//		if (RX[10] == xor)
-		if ((RX[0] == 0x02)&&(RX[1] == 0x0B)&&(RX[2] == 0x01)&&(RX[10] == 0xFF))
-		{
-			RtTorque = (float) (RX[3] << 8 | RX[4])/10.0;
-			LiftTorque = (float) (RX[5] << 8 | RX[6])/10.0;
-			RollbackTorque = (float) (RX[7] << 8 | RX[8])/10.0;
-			gStatus = RX[9];
-		}
-	}
-
-	rxSta = 1;
-
-	SCI_resetRxFifo(halHandle->sciBHandle);
-	SCI_clearRxFifoOvf(halHandle->sciBHandle);
-	SCI_enableRxFifo(halHandle->sciBHandle);
-
-}
-
-void chopper(void)
-{
-	if(gAdcData.dcBus > _IQ(1.28))
-		HAL_enableCHOPPER();
-	else if(gAdcData.dcBus < _IQ(1.23))
-		HAL_disableCHOPPER();
-
-//	if(VDcTrs > _IQ(1.28))
-//		HAL_enableCHOPPER();
-//	else if(VDcTrs < _IQ(1.23))
-//		HAL_disableCHOPPER();
-}
 
 // **************************************************************************
 // the functions
@@ -688,10 +739,13 @@ interrupt void mainISR(void) {
 	gHall_GpioData += (~HAL_readGpio(halHandle,GPIO_Number_15) & 0x1)<<1;
 	gHall_GpioData += (~HAL_readGpio(halHandle,GPIO_Number_11) & 0x1)<<0;
 
-	HallACap1 = CAP_getCap1(halHandle->capHandle[0]);
-	HallACap2 = CAP_getCap2(halHandle->capHandle[0]);
-	HallACap3 = CAP_getCap3(halHandle->capHandle[0]);
-	HallACap4 = CAP_getCap4(halHandle->capHandle[0]);
+	if(CAP_getInt(halHandle->capHandle[0],CAP_Int_Type_CEVT4)){
+		HallACap1 = CAP_getCap1(halHandle->capHandle[0]);
+		HallACap2 = CAP_getCap2(halHandle->capHandle[0]);
+		HallACap3 = CAP_getCap3(halHandle->capHandle[0]);
+		HallACap4 = CAP_getCap4(halHandle->capHandle[0]);
+		CAP_clearInt(halHandle->capHandle[0],CAP_Int_Type_CEVT4);
+	}
 	HallBCap1 = CAP_getCap1(halHandle->capHandle[1]);
 	HallBCap2 = CAP_getCap2(halHandle->capHandle[1]);
 	HallCCap1 = CAP_getCap1(halHandle->capHandle[2]);
@@ -748,9 +802,11 @@ interrupt void mainISR(void) {
 	CTRL_setup(ctrlHandle);
 	/**********************************************************************/
 
+
 	/*******************************chopper***************************************/
 	chopper();
 	/**********************************************************************/
+
 
 	// read the timer 1 value and update the CPU usage module
 	timer1Cnt = HAL_readTimerCnt(halHandle, 1);
@@ -865,6 +921,140 @@ void updateCPUusage(void)
 
   return;
 } // end of updateCPUusage() function
+
+void SCIB_TX_PRE(void){
+	uint16_t i;
+	uint16_t xor = 0;
+	uint16_t status = 0x55;
+	uint16_t request = 0xAA;
+	uint16_t id = 0x11;
+
+	if (txSta == 0){ //不在发送状态
+		TX[0] = 0x01; //目标地址
+		TX[1] = 0x0A; //帧长
+		TX[2] = 0x02; //功能码
+		TX[3] = status & 0xFF;
+		TX[4] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) >> 8 & 0xFF;
+		TX[5] = ((uint16_t) (gMotorVars.Torque_Nm * 10.0)) & 0xFF;
+		TX[6] = request & 0xFF;
+		TX[7] = id >> 8 & 0xFF;
+		TX[8] = id & 0xFF;
+		for (i = 0; i < 9; i++) {
+			xor ^= TX[i];
+		}
+		TX[9] = xor;
+	}
+
+	txSta = 1;
+
+	SCI_resetTxFifo(halHandle->sciBHandle);
+	SCI_enableTxFifo(halHandle->sciBHandle);
+
+}
+
+void SCIB_TX(void) {
+
+	if(txSta == 1){
+		if(SCI_getTxFifoStatus(halHandle->sciBHandle) <= 1){
+			halHandle->sciBHandle->SCITXBUF = TX[txPos];
+			txPos++;
+		}
+
+		if(txPos>=10){
+			txSta = 0;
+			txPos = 0;
+		}
+	}
+}
+
+void SCIB_RX(void) {
+	uint16_t rxTmp = 0;
+
+//	if(rxSta == 1){
+		if (SCI_getRxFifoStatus(halHandle->sciBHandle) >= 1) {
+			rxTmp = halHandle->sciBHandle->SCIRXBUF & 0xFF;
+			cnt_Rx = 0;
+
+			if(flag1 == 0){
+				rxPos = 0;
+				if(rxTmp == 0x02)
+					flag1 = 1;
+			}else if (flag2 == 0){
+				rxPos++;
+				if(rxTmp == 0x0B)
+					flag2 = 1;
+				else
+					flag1 = 0;
+			}else if(flag3 == 0){
+				rxPos++;
+				if(rxTmp == 0x01)
+					flag3 = 1;
+				else
+					flag1 = 0;
+			}else
+				rxPos++;
+
+			if(flag1 == 0){
+				flag2 = 0;
+				flag3 = 0;
+				rxPos = 0;
+			}
+			else
+				RX[rxPos] = rxTmp;
+		}
+
+		if(rxPos>=10||cnt_Rx > 1000){
+			flag1 = 0;
+			flag2 = 0;
+			flag3 = 0;
+			rxPos = 0;
+			rxSta = 0;
+		}
+//	}
+}
+
+void SCIB_RX_RSL(void)
+{
+	uint16_t i = 0;
+	uint16_t xor = 0;
+
+
+	if(rxSta == 0){
+		for(i=0;i<10;i++)
+			xor ^=RX[i];
+
+		gXor = xor;
+
+//		if (RX[10] == xor)
+		if ((RX[0] == 0x02)&&(RX[1] == 0x0B)&&(RX[2] == 0x01)&&(RX[10] == 0xFF))
+		{
+			RtTorque = (float) (RX[3] << 8 | RX[4])/10.0;
+			LiftTorque = (float) (RX[5] << 8 | RX[6])/10.0;
+			RollbackTorque = (float) (RX[7] << 8 | RX[8])/10.0;
+			gStatus = RX[9];
+		}
+	}
+
+	rxSta = 1;
+
+	SCI_resetRxFifo(halHandle->sciBHandle);
+	SCI_clearRxFifoOvf(halHandle->sciBHandle);
+	SCI_enableRxFifo(halHandle->sciBHandle);
+
+}
+
+void chopper(void)
+{
+	if(gAdcData.dcBus > _IQ(1.28))
+		HAL_enableCHOPPER();
+	else if(gAdcData.dcBus < _IQ(1.23))
+		HAL_disableCHOPPER();
+
+//	if(VDcTrs > _IQ(1.28))
+//		HAL_enableCHOPPER();
+//	else if(VDcTrs < _IQ(1.23))
+//		HAL_disableCHOPPER();
+}
 
 //@} //defgroup
 // end of file

@@ -42,6 +42,8 @@
 // **************************************************************************
 // the includes
 
+#include <math.h>
+#include "types.h"
 #include "IQmathLib.h"
 
 
