@@ -146,14 +146,39 @@ extern "C" {
 #define HAL_toggleLed             HAL_toggleGpio
 
 
-//! \brief Defines the GPIO pin number for drv8301kit_revD Switch 1
+//! \brief Defines the function to open Vavles
 //!
-#define HAL_GPIO_SW1  GPIO_Number_9
+#define HAL_openVavle            HAL_setGpioHigh
+
+//! \brief Defines the function to close Vavles
+//!
+#define HAL_closeVavle            HAL_setGpioLow
+
+//! \brief Defines the function to open Fans
+//!
+#define HAL_openFan            	HAL_setGpioHigh
 
 
-//! \brief Defines the GPIO pin number for drv8301kit_revD Switch 2
+//! \brief Defines the function to close Fans
 //!
-#define HAL_GPIO_SW2  GPIO_Number_7
+#define HAL_closeFan            	HAL_setGpioLow
+
+
+//! \brief Defines the function to enable Fan source
+//!
+#define HAL_enableFanSrc            	HAL_setGpioLow
+
+
+//! \brief Defines the function to disable Fan source
+//!
+#define HAL_disableFanSrc            	HAL_setGpioHigh
+
+
+//! \brief Defines the function to reset I2C bus
+//!
+#define HAL_resetI2CBus            	HAL_setGpioLow
+
+
 
 //! \brief Defines the chopper enable
 //!
@@ -178,13 +203,13 @@ typedef enum
 
 //! \brief Enumeration for the LED numbers
 //!
-typedef enum
-{
-//  HAL_Gpio_LED2=GPIO_Number_31,  //!< GPIO pin number for ControlCARD LED 2
-//  HAL_Gpio_LED3=GPIO_Number_34   //!< GPIO pin number for ControlCARD LED 3
-  HAL_Gpio_LED2=GPIO_Number_39,  //!< GPIO pin number for LED 2
-  HAL_Gpio_LED4=GPIO_Number_44   //!< GPIO pin number for LED 4
-} HAL_LedNumber_e;
+//typedef enum
+//{
+////  HAL_Gpio_LED2=GPIO_Number_31,  //!< GPIO pin number for ControlCARD LED 2
+////  HAL_Gpio_LED3=GPIO_Number_34   //!< GPIO pin number for ControlCARD LED 3
+//  HAL_Gpio_LED2=GPIO_Number_39,  //!< GPIO pin number for LED 2
+//  HAL_Gpio_LED4=GPIO_Number_44   //!< GPIO pin number for LED 4
+//} HAL_LedNumber_e;
   
 // select whether to use the hall input on connector J4 or J10 of the EVM
 #define JH_J4
@@ -209,6 +234,35 @@ typedef enum
   HAL_HallGpio_C=GPIO_Number_26   //!< GPIO pin number for Hall Sensor C
 } HAL_HallGpio_e;
 #endif
+
+typedef enum
+{
+	HAL_Vavle_R=GPIO_Number_6,
+	HAL_Vavle_L=GPIO_Number_7,
+	HAL_Fan_All=GPIO_Number_10,
+//	GPIO_Number_34
+	HAL_Gpio_LED2=GPIO_Number_39,
+	HAL_Chop=GPIO_Number_42,
+	HAL_FanSrc=GPIO_Number_43,
+	HAL_Gpio_LED4=GPIO_Number_44,
+	//	GPIO_Number_50
+	HAL_Drv_Relay=GPIO_Number_51,
+	HAL_48VSrc=GPIO_Number_53,
+	HAL_I2CBus_Rst=GPIO_Number_58
+}HAL_GPIO_Output_e;
+
+typedef enum
+{
+	//	GPIO_Number_8
+	//	GPIO_Number_12
+	HAL_Drv_Warn=GPIO_Number_13,
+	HAL_Drv_Fault=GPIO_Number_14,
+	//	GPIO_Number_30
+	//	GPIO_Number_31
+	//	GPIO_Number_52
+	HAL_Fan0_Fb=GPIO_Number_56,
+	HAL_Fan1_Fb=GPIO_Number_57
+}HAL_GPIO_Input_e;
 
 
 //! \brief Enumeration for the sensor types
@@ -586,12 +640,6 @@ static inline void HAL_readAdcData(HAL_Handle handle,HAL_AdcData_t *pAdcData)
   _iq current_sf = HAL_getCurrentScaleFactor(handle);
   _iq voltage_sf = HAL_getVoltageScaleFactor(handle);
 
-  // NTC电阻与1K电阻分压3.3V ADCVref 0-3.3V
-  _iq ntc_sf	= _IQ(1.0);
-
-  //PT100电阻与1K电阻分压3.3V ADCVref 0-3.3V
-  _iq pt100_sf	= _IQ(1.0);
-
 
   // convert current A
   // sample the first sample twice due to errata sprz342f, ignore the first sample
@@ -642,20 +690,46 @@ static inline void HAL_readAdcData(HAL_Handle handle,HAL_AdcData_t *pAdcData)
   value = _IQ12mpy(value,current_sf) - obj->adcBias.IChop;
   pAdcData->IChop = -value;
 
-  // read the chopper resistor temperature value
-  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_10);
-  value = _IQ12mpy(value,pt100_sf);
-  pAdcData->TChop = value;
+  return;
+} // end of HAL_readAdcData() function
+
+//! \brief      Reads the ADC data low speed
+//! \details    Reads in the ADC result registers, adjusts for offsets, and
+//!             scales the values according to the settings in user.h.  The
+//!             structure gAdcData holds three phase voltages, three line
+//!             currents, and one DC bus voltage.
+//! \param[in]  handle    The hardware abstraction layer (HAL) handle
+//! \param[in]  pAdcData  A pointer to the ADC data buffer
+static inline void HAL_readAdcDataLsp(HAL_Handle handle,HAL_AdcData_t *pAdcData)
+{
+  HAL_Obj *obj = (HAL_Obj *)handle;
+
+  float_t value;
+  float_t RT;
+  float_t B = 3950.0;
+  float_t TN = 298.15;
+  float_t RN = 10.0;
+  float_t R1 = 1.0;
+  float_t ADCBase = 4096.0;
+
+
+  // read the chopper resistor temperature value  NTC 10kOhm B3950 3.3V 1kOhm分压
+  value = (float_t)ADC_readResult(obj->adcHandle,ADC_ResultNumber_10);
+  RT = value/(ADCBase-value)*R1;
+  value = 1.0/(1.0/TN+log(RT/RN)/B);
+  pAdcData->TChop = value-273.15;
 
   // read the motor windings temperature value
-  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_11);
-  value = _IQ12mpy(value,ntc_sf);
-  pAdcData->TMotor = value;
+  value = (float_t)ADC_readResult(obj->adcHandle,ADC_ResultNumber_11);
+  RT = value/(ADCBase-value)*R1;
+  value = 1.0/(1.0/TN+log(RT/RN)/B);
+  pAdcData->TMotor = value-273.15;
 
   // read the control board temperature value
-  value = (_iq)ADC_readResult(obj->adcHandle,ADC_ResultNumber_12);
-  value = _IQ12mpy(value,ntc_sf);
-  pAdcData->TBoard = value;
+  value = (float_t)ADC_readResult(obj->adcHandle,ADC_ResultNumber_12);
+  RT = value/(ADCBase-value)*R1;
+  value = 1.0/(1.0/TN+log(RT/RN)/B);
+  pAdcData->TBoard = value-273.15;
 
   return;
 } // end of HAL_readAdcData() function

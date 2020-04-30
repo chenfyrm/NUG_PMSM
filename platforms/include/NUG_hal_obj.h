@@ -98,11 +98,11 @@ typedef struct _HAL_AdcData_t_
 
   _iq		IChop;		//!< the chopper resistor current value
 
-  _iq		TChop;		//!< the chopper resistor temperature value
+  float_t	TChop;		//!< the chopper resistor temperature value
 
-  _iq		TMotor;		//!< the motor windings temperature value
+  float_t	TMotor;		//!< the motor windings temperature value
 
-  _iq		TBoard;		//!< the control board temperature value
+  float_t	TBoard;		//!< the control board temperature value
 
 } HAL_AdcData_t;
 
@@ -197,10 +197,6 @@ typedef struct _HAL_Obj_
   _iq           current_sf;       //!< the current scale factor, amps_pu/cnt
 
   _iq           voltage_sf;       //!< the voltage scale factor, volts_pu/cnt
-
-  _iq			pt100_sf;
-
-  _iq			ntc_sf;			//!< R25 = 10K; B = 3950
 
   uint_least8_t numCurrentSensors; //!< the number of current sensors
   uint_least8_t numVoltageSensors; //!< the number of voltage sensors

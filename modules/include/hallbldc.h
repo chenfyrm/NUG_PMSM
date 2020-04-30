@@ -43,9 +43,9 @@
 // the includes
 
 // modules
-#include "IQmathLib.h"
-#include "math.h"
-#include "types.h"
+
+#include "user_math.h"
+
 
 //!
 //!
@@ -71,6 +71,9 @@ extern "C" {
 //! brief Define HALLC mask
 #define HALL_C_MASK				(1<<0)
 
+//! brief Define HALL mask
+#define HALL_MASK				(7<<0)
+
 
 // **************************************************************************
 // the typedefs
@@ -86,7 +89,10 @@ typedef enum
 //!
 typedef struct _HALLBLDC_Obj_
 {
+  uint_least8_t  hallState;
   uint_least8_t  prevState_bin;     //!< the previous hall state for determining direction
+  uint32_t		 hallCounter;
+  uint32_t		 preCounter;
   _iq            angle_pu;          //!< the pu angle of the current hall state
 
   uint_least8_t  sensorType;         //!< 120 deg or 60 deg

@@ -69,7 +69,7 @@ union I2CISRC_REG {
 //----------------------------------------------------
 // I2C interrupt mask register bit definitions */
 struct I2CIER_BITS {          // bits   description
-   uint16_t ARBL:1;               // 0      Arbitration lost interrupt
+   uint16_t ARBL:1;              // 0      Arbitration lost interrupt
    uint16_t NACK:1;             // 1      No ack interrupt
    uint16_t ARDY:1;             // 2      Register access ready interrupt
    uint16_t RRDY:1;             // 3      Recieve data ready interrupt

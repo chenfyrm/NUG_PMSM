@@ -581,11 +581,9 @@ void HAL_setupFaults(HAL_Handle handle)
   // These trips need to be repeated for EPWM1 ,2 & 3
   for(cnt=0;cnt<3;cnt++)
     {
-      PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_CycleByCycle_TZ6_NOT);
-
-      PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_CycleByCycle_TZ3_NOT);
-
       PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_CycleByCycle_TZ2_NOT);
+
+      PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_OneShot_TZ3_NOT);
 
       // What do we want the OST/CBC events to do?
       // TZA events can force EPWMxA
@@ -811,6 +809,7 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
 
   // setup the QEP
   HAL_setupQEP(handle,HAL_Qep_QEP1);
+  HAL_setupQEP(handle,HAL_Qep_QEP2);
 
 
   // setup the spiA
@@ -826,6 +825,21 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
   // setup the cap
   HAL_setupCap(handle);
 
+  // setup the I2C
+//  I2caRegs.I2CSAR = 0x0050;		// Slave address - EEPROM control code
+//
+//  I2caRegs.I2CPSC.all = 6;		    // Prescaler - need 7-12 Mhz on module clk
+//  I2caRegs.I2CCLKL = 10;			// NOTE: must be non zero
+//  I2caRegs.I2CCLKH = 5;			// NOTE: must be non zero
+//  I2caRegs.I2CIER.all = 0x24;		// Enable SCD & ARDY interrupts
+//
+//  I2caRegs.I2CMDR.all = 0x0020;	// Take I2C out of reset
+//  									// Stop I2C when suspended
+//
+//  I2caRegs.I2CFFTX.all = 0x6000;	// Enable FIFO mode and TXFIFO
+//  I2caRegs.I2CFFRX.all = 0x2040;	// Enable RXFIFO, clear RXFFINT,
+
+  // setup the MuxI2c
 
 //  // setup the PWM DACs
 //  HAL_setupPwmDacs(handle);
@@ -946,7 +960,6 @@ void HAL_setupAdcs(HAL_Handle handle)
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_1,ADC_SocSampleDelay_9_cycles);
 
   // EXT IB-FB ADCA4
-//  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_2,ADC_SocChanNumber_B6);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_2,ADC_SocChanNumber_A4);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_2,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_2,ADC_SocSampleDelay_9_cycles);
@@ -962,19 +975,16 @@ void HAL_setupAdcs(HAL_Handle handle)
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_4,ADC_SocSampleDelay_9_cycles);
 
   // ADC-Vhb2 ADCB4
-//  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_5,ADC_SocChanNumber_A7);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_5,ADC_SocChanNumber_B4);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_5,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_5,ADC_SocSampleDelay_9_cycles);
 
   // ADC-Vhb3 ADCA1
-//  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_6,ADC_SocChanNumber_B4);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_6,ADC_SocChanNumber_A1);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_6,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_6,ADC_SocSampleDelay_9_cycles);
 
   // VDCBUS ADCA2
-//  ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_7,ADC_SocChanNumber_B2);
   ADC_setSocChanNumber(obj->adcHandle,ADC_SocNumber_7,ADC_SocChanNumber_A2);
   ADC_setSocTrigSrc(obj->adcHandle,ADC_SocNumber_7,ADC_SocTrigSrc_EPWM1_ADCSOCA);
   ADC_setSocSampleDelay(obj->adcHandle,ADC_SocNumber_7,ADC_SocSampleDelay_9_cycles);
@@ -1077,194 +1087,236 @@ void HAL_setupGpios(HAL_Handle handle)
 {
   HAL_Obj *obj = (HAL_Obj *)handle;
 
+  // PWM1-6
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_0,GPIO_Pullup_Disable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_1,GPIO_Pullup_Disable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_2,GPIO_Pullup_Disable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_3,GPIO_Pullup_Disable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_4,GPIO_Pullup_Disable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_5,GPIO_Pullup_Disable);
 
-  // PWM1
   GPIO_setMode(obj->gpioHandle,GPIO_Number_0,GPIO_0_Mode_EPWM1A);
-
-  // PWM2
   GPIO_setMode(obj->gpioHandle,GPIO_Number_1,GPIO_1_Mode_EPWM1B);
-
-  // PWM3
   GPIO_setMode(obj->gpioHandle,GPIO_Number_2,GPIO_2_Mode_EPWM2A);
-
-  // PWM4
   GPIO_setMode(obj->gpioHandle,GPIO_Number_3,GPIO_3_Mode_EPWM2B);
-
-  // PWM5
   GPIO_setMode(obj->gpioHandle,GPIO_Number_4,GPIO_4_Mode_EPWM3A);
-
-  // PWM6
   GPIO_setMode(obj->gpioHandle,GPIO_Number_5,GPIO_5_Mode_EPWM3B);
 
-  //右电磁阀
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_6,GPIO_6_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_6,GPIO_Direction_Output);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_6);
+  // Set Qualification Period for GPIO8-15, 10*2*(1/90MHz) = 0.22us
+  GPIO_setQualificationPeriod(obj->gpioHandle,GPIO_Number_8,10);
+  // CAP1-3
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_9,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_11,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_15,GPIO_Pullup_Enable);
 
-  //左电磁阀
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_7,GPIO_7_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_7,GPIO_Direction_Output);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_7);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_9,GPIO_Qual_Sync);  // Set Qualification for GPIO9 SysClockOut
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_11,GPIO_Qual_Sync);  // Set Qualification for GPIO11 SysClockOut
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_15,GPIO_Qual_Sync);  // Set Qualification for GPIO15 SysClockOut
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_9,GPIO_Qual_Sample_3);  // Set Qualification for GPIO9
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_11,GPIO_Qual_Sample_3);  // Set Qualification for GPIO11
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_15,GPIO_Qual_Sample_3);  // Set Qualification for GPIO15
 
-  //机械臂接口判断
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_8,GPIO_8_Mode_GeneralPurpose);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_9,GPIO_9_Mode_ECAP3);//Hall C
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_11,GPIO_11_Mode_ECAP1);//Hall A
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_15,GPIO_15_Mode_ECAP2);//Hall B
 
-  //HALL C
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_9,GPIO_9_Mode_ECAP3);
+  // TZ
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_13,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_14,GPIO_Pullup_Enable);
 
-  //风扇0 1 开关
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_10,GPIO_10_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_10,GPIO_Direction_Output);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_10); //控制未知
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_13,GPIO_Qual_ASync);  // Set Qualification for GPIO13
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_14,GPIO_Qual_ASync);  // Set Qualification for GPIO14
 
-  //HALL A
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_11,GPIO_11_Mode_ECAP1);
-
-  //I2C 控制芯片控制
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_12,GPIO_12_Mode_GeneralPurpose);
-
-  // OCTWn
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_13,GPIO_13_Mode_TZ2_NOT);
-
-  // FAULTn
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_14,GPIO_14_Mode_TZ3_NOT);
-
-  //HALL B
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_15,GPIO_15_Mode_ECAP2);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_13,GPIO_13_Mode_TZ2_NOT);// OCTWn
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_14,GPIO_14_Mode_TZ3_NOT);// FAULTn
 
   // Set Qualification Period for GPIO16-23, 5*2*(1/90MHz) = 0.11us
   GPIO_setQualificationPeriod(obj->gpioHandle,GPIO_Number_16,5);
+  // SPIA
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_16,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_17,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_18,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_19,GPIO_Pullup_Enable);
 
-  // SPI-SIMO
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_16,GPIO_16_Mode_SPISIMOA);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_16,GPIO_Qual_ASync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_17,GPIO_Qual_ASync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_18,GPIO_Qual_ASync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_19,GPIO_Qual_ASync);
 
-  // SPI-SOMI
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_17,GPIO_17_Mode_SPISOMIA);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_16,GPIO_16_Mode_SPISIMOA);// SPI-SIMO
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_17,GPIO_17_Mode_SPISOMIA);// SPI-SOMI
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_18,GPIO_18_Mode_SPICLKA);// SPI-CLK
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_19,GPIO_19_Mode_SPISTEA_NOT); // SPI-STE
 
-  // SPI-CLK
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_18,GPIO_18_Mode_SPICLKA);
+  // QEP1
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_20,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_21,GPIO_Pullup_Enable);
 
-  // SPI-STE
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_19,GPIO_19_Mode_SPISTEA_NOT);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_20,GPIO_Qual_Sync);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_21,GPIO_Qual_Sync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_20,GPIO_Qual_Sample_3);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_21,GPIO_Qual_Sample_3);
 
-  // EQEP1A
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_EQEP1A);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_20,GPIO_20_Mode_EQEP1A);// EQEP1A
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_EQEP1B);// EQEP1B
 
-  // EQEP1B
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_21,GPIO_21_Mode_EQEP1B);
-
-  //48V电源通信 SCITXDB
+  // SCIB
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_22,GPIO_Pullup_Enable);
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_22,GPIO_22_Mode_SCITXDB);
-
-  //48V电源通信 SCIRXDB
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_23,GPIO_Pullup_Enable);
+
   GPIO_setQualification(obj->gpioHandle,GPIO_Number_23,GPIO_Qual_ASync);
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_23,GPIO_23_Mode_SCIRXDB);
 
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_22,GPIO_22_Mode_SCITXDB);//48V电源通信 SCITXDB
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_23,GPIO_23_Mode_SCIRXDB);//48V电源通信 SCIRXDB
 
-  // EQEP2A
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_24,GPIO_24_Mode_EQEP2A);
+  // Set Qualification Period for GPIO24-31, 5*2*(1/90MHz) = 0.11us
+  GPIO_setQualificationPeriod(obj->gpioHandle,GPIO_Number_24,5);
+  // QEP2
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_24,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_25,GPIO_Pullup_Enable);
 
-  // EQEP2B
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_25,GPIO_25_Mode_EQEP2B);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_24,GPIO_Qual_Sync);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_25,GPIO_Qual_Sync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_24,GPIO_Qual_Sample_6);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_25,GPIO_Qual_Sample_6);
 
-  //USB
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_26,GPIO_26_Mode_GeneralPurpose);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_24,GPIO_24_Mode_EQEP2A);// EQEP2A
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_25,GPIO_25_Mode_EQEP2B);// EQEP2B
 
-  //USB
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_27,GPIO_27_Mode_GeneralPurpose);
+  // I2C
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_28,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_29,GPIO_Pullup_Enable);
 
-  //I2C
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_28,GPIO_Qual_ASync);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_29,GPIO_Qual_ASync);
+
   GPIO_setMode(obj->gpioHandle,GPIO_Number_28,GPIO_28_Mode_SDDA);
-
-  //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_29,GPIO_29_Mode_SCLA);
 
-  //唤醒按钮
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_30,GPIO_30_Mode_GeneralPurpose);
+  // MUX I2C
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_32,GPIO_Pullup_Enable);
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_33,GPIO_Pullup_Enable);
 
-  //蓝牙
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_31,GPIO_31_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_31,GPIO_Direction_Output);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_31);
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_32,GPIO_Qual_ASync); // set the qualification
+  GPIO_setQualification(obj->gpioHandle,GPIO_Number_33,GPIO_Qual_ASync);
 
-  //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_32,GPIO_32_Mode_SDAA);
-
-  //I2C
   GPIO_setMode(obj->gpioHandle,GPIO_Number_33,GPIO_33_Mode_SCLA);
-
-    //触摸屏
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_34,GPIO_34_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_34,GPIO_Direction_Output);
 
   // JTAG
   GPIO_setMode(obj->gpioHandle,GPIO_Number_35,GPIO_35_Mode_JTAG_TDI);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_36,GPIO_36_Mode_JTAG_TMS);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_37,GPIO_37_Mode_JTAG_TDO);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_38,GPIO_38_Mode_JTAG_TCK);
-
-  //LED2
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_39,GPIO_39_Mode_GeneralPurpose);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_39);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_39,GPIO_Direction_Output);
-
-   // JTAG
   GPIO_setMode(obj->gpioHandle,GPIO_Number_40,GPIO_40_Mode_GeneralPurpose);
-
-
-  // JTAG
   GPIO_setMode(obj->gpioHandle,GPIO_Number_41,GPIO_41_Mode_GeneralPurpose);
 
+//  // QEP2 备用
+//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_54,GPIO_Pullup_Enable);
+//  GPIO_setPullup(obj->gpioHandle,GPIO_Number_55,GPIO_Pullup_Enable);
+//
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_54,GPIO_Qual_Sync);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_55,GPIO_Qual_Sync);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_54,GPIO_Qual_Sample_3);
+//  GPIO_setQualification(obj->gpioHandle,GPIO_Number_55,GPIO_Qual_Sample_3);
+//
+//  GPIO_setMode(obj->gpioHandle,GPIO_Number_54,GPIO_54_Mode_EQEP2A);
+//  GPIO_setMode(obj->gpioHandle,GPIO_Number_55,GPIO_55_Mode_EQEP2B);
 
-  //斩波使能  与硬件逻辑或
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_42,GPIO_42_Mode_GeneralPurpose);
+
+  //右电磁阀 高开
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_6,GPIO_Pullup_Enable);
+  GPIO_setLow(obj->gpioHandle,GPIO_Number_6);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_6,GPIO_6_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_6,GPIO_Direction_Output);
+
+  //左电磁阀 高开
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_7,GPIO_Pullup_Enable);
+  GPIO_setLow(obj->gpioHandle,GPIO_Number_7);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_7,GPIO_7_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_7,GPIO_Direction_Output);
+
+  //风扇0 1 开关
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_10,GPIO_Pullup_Enable);
+//  GPIO_setLow(obj->gpioHandle,GPIO_Number_10); //控制未知
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_10,GPIO_10_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_10,GPIO_Direction_Output);
+
+  // 触摸屏 低动作
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_34,GPIO_Pullup_Enable);
+//  GPIO_setHigh(obj->gpioHandle,GPIO_Number_34);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_34,GPIO_34_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_34,GPIO_Direction_Output);
+
+  //LED2 低亮
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_39,GPIO_Pullup_Enable);
+  GPIO_setHigh(obj->gpioHandle,GPIO_Number_39);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_39,GPIO_39_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_39,GPIO_Direction_Output);
+
+  //斩波使能  与硬件逻辑或 高使能
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_42,GPIO_Pullup_Enable);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_42);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_42,GPIO_42_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_42,GPIO_Direction_Output);
 
   //风扇 电源 芯片使能   低使能
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_43,GPIO_Pullup_Enable);
+  GPIO_setHigh(obj->gpioHandle,GPIO_Number_43);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_43,GPIO_43_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_43,GPIO_Direction_Output);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_43);
 
-  //LED4
+  //LED4 低亮
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_44,GPIO_Pullup_Enable);
+  GPIO_setHigh(obj->gpioHandle,GPIO_Number_44);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_44,GPIO_44_Mode_GeneralPurpose);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_44);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_44,GPIO_Direction_Output);
 
-  //蓝牙
+  // 蓝牙接收模块
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_50,GPIO_Pullup_Enable);
+  //  GPIO_setLow(obj->gpioHandle,GPIO_Number_50);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_50,GPIO_50_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_50,GPIO_Direction_Output);
 
-  // DRV8301 Enable
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_51,GPIO_51_Mode_GeneralPurpose);
+  // DRV8301 Enable 高使能  常闭接触器动作
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_51,GPIO_Pullup_Enable);
   GPIO_setLow(obj->gpioHandle,GPIO_Number_51);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_51,GPIO_51_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_51,GPIO_Direction_Output);
 
-  //USB 电源
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_52,GPIO_52_Mode_GeneralPurpose);
-
-
-  //48V电源
+  //48V 电源控制  低开电源  默认关
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_53,GPIO_Pullup_Enable);
+  GPIO_setHigh(obj->gpioHandle,GPIO_Number_53);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_53,GPIO_53_Mode_GeneralPurpose);
-  GPIO_setLow(obj->gpioHandle,GPIO_Number_53);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_53,GPIO_Direction_Output);
 
-//
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_54,GPIO_54_Mode_EQEP2A);
+  // I2C 总线控制器复位 低复位
+  GPIO_setPullup(obj->gpioHandle,GPIO_Number_58,GPIO_Pullup_Enable);
+  GPIO_setHigh(obj->gpioHandle,GPIO_Number_58);
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_58,GPIO_58_Mode_GeneralPurpose);
+  GPIO_setDirection(obj->gpioHandle,GPIO_Number_58,GPIO_Direction_Output);
 
-//
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_55,GPIO_55_Mode_EQEP2B);
 
+  //机械臂接口判断
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_8,GPIO_8_Mode_GeneralPurpose);
+  //I2C 控制芯片 中断
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_12,GPIO_12_Mode_GeneralPurpose);
+  // 唤醒按钮
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_30,GPIO_30_Mode_GeneralPurpose);
+  // 蓝牙接收模块
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_31,GPIO_31_Mode_GeneralPurpose);
+  //USB 电源
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_52,GPIO_52_Mode_GeneralPurpose);
   //风扇0 反馈
   GPIO_setMode(obj->gpioHandle,GPIO_Number_56,GPIO_56_Mode_GeneralPurpose);
-
   //风扇1 反馈
   GPIO_setMode(obj->gpioHandle,GPIO_Number_57,GPIO_57_Mode_GeneralPurpose);
 
-  //I2C 总线控制器复位
-  GPIO_setMode(obj->gpioHandle,GPIO_Number_58,GPIO_58_Mode_GeneralPurpose);
-  GPIO_setDirection(obj->gpioHandle,GPIO_Number_58,GPIO_Direction_Output);
+
+  //USB
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_26,GPIO_26_Mode_GeneralPurpose);
+  //USB
+  GPIO_setMode(obj->gpioHandle,GPIO_Number_27,GPIO_27_Mode_GeneralPurpose);
 
   return;
 }  // end of HAL_setupGpios() function
@@ -1528,7 +1580,18 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
   QEP_clear_posn_counter(obj->qepHandle[qep]);
 
   // setup the max position
-  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES)-1);
+//  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES)-1);
+  QEP_set_max_posn_count(obj->qepHandle[qep], 0xFFFFFFFF);
+
+  // setup the QUPRD
+  if(qep==HAL_Qep_QEP1)
+  {
+	  QEP_set_unit_period(obj->qepHandle[qep], 900000); // sysclkout 90MHz 10ms calculated once 100Hz
+  }
+  else if(qep==HAL_Qep_QEP2)
+  {
+	  QEP_set_unit_period(obj->qepHandle[qep], 9000000); // sysclkout 90MHz 100ms calculated once 10Hz
+  }
 
   // setup the QDECCTL register
   QEP_set_QEP_source(obj->qepHandle[qep], QEP_Qsrc_Quad_Count_Mode);
@@ -1543,18 +1606,32 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
   // setup the QEPCTL register
   QEP_set_emu_control(obj->qepHandle[qep], QEPCTL_Freesoft_Unaffected_Halt);
   QEP_set_posn_count_reset_mode(obj->qepHandle[qep], QEPCTL_Pcrm_Max_Reset);
+//  QEP_set_posn_count_reset_mode(obj->qepHandle[qep], QEPCTL_Pcrm_Unit_Time_Reset);
   QEP_set_strobe_event_init(obj->qepHandle[qep], QEPCTL_Sei_Nothing);
   QEP_set_index_event_init(obj->qepHandle[qep], QEPCTL_Iei_Nothing);
   QEP_set_index_event_latch(obj->qepHandle[qep], QEPCTL_Iel_Rising_Edge);
   QEP_set_soft_init(obj->qepHandle[qep], QEPCTL_Swi_Nothing);
-  QEP_disable_unit_timer(obj->qepHandle[qep]);
+//  QEP_disable_unit_timer(obj->qepHandle[qep]);
+  QEP_enable_unit_timer(obj->qepHandle[qep]);
+  QEP_set_capture_latch_mode(obj->qepHandle[qep], QEPCTL_Qclm_Latch_on_Unit_Timeout);
   QEP_disable_watchdog(obj->qepHandle[qep]);
 
   // setup the QPOSCTL register
   QEP_disable_posn_compare(obj->qepHandle[qep]);
 
   // setup the QCAPCTL register
-  QEP_disable_capture(obj->qepHandle[qep]);
+//  QEP_disable_capture(obj->qepHandle[qep]);
+  if(qep==HAL_Qep_QEP1)
+  {
+	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_16_Prescale); // UPEVNT 1/4 QCLK
+	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_64); // CAPCLK 90/128 MHz
+  }
+  else if(qep==HAL_Qep_QEP2)
+  {
+	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_2_Prescale); // UPEVNT 1/4 QCLK
+	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_128); // CAPCLK 90/128 MHz
+  }
+  QEP_enable_capture(obj->qepHandle[qep]);
 
   // renable the position counter
   QEP_enable_counter(obj->qepHandle[qep]);
@@ -1688,7 +1765,6 @@ void HAL_setupCap(HAL_Handle handle)
 {
 	HAL_Obj *obj = (HAL_Obj*)handle;
 	uint16_t i;
-//	uint16_t j;
 
 	for(i=0;i<3;i++)
 	{
@@ -1700,48 +1776,24 @@ void HAL_setupCap(HAL_Handle handle)
 		CAP_setModeCap(obj->capHandle[i]);
 		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
 		CAP_setCapContinuous(obj->capHandle[i]);
-		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
+		CAP_disableSyncIn(obj->capHandle[i]);
+		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT1);
+		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);
+//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_4,CAP_Polarity_Falling);
 		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
-		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
+//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
 //		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Disable);
 //		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Disable);
 //		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Disable);
 //		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Disable);
-		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
-		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
-		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);
-		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_4,CAP_Polarity_Falling);
 
 		CAP_enableTimestampCounter(obj->capHandle[i]);
 		CAP_enableCaptureLoad(obj->capHandle[i]);
 	}
-
-//	for(i=0;i<3;i++)
-//	{
-//		i = 1;
-//		CAP_disableInt(obj->capHandle[i],CAP_Int_Type_All);
-//		CAP_clearInt(obj->capHandle[i],CAP_Int_Type_All);
-//		CAP_disableCaptureLoad(obj->capHandle[i]);
-//		CAP_disableTimestampCounter(obj->capHandle[i]);
-//
-//		CAP_setModeCap(obj->capHandle[i]);
-//		CAP_setCapEvtPrescale(obj->capHandle[i],CAP_Prescale_By_1);
-//		CAP_setCapContinuous(obj->capHandle[i]);
-//		CAP_setStopWrap(obj->capHandle[i],CAP_Stop_Wrap_CEVT4);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_1,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_2,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_3,CAP_Reset_Enable);
-//		CAP_setCapEvtReset(obj->capHandle[i],CAP_Event_4,CAP_Reset_Enable);
-//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_1,CAP_Polarity_Rising);
-//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_2,CAP_Polarity_Falling);
-//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_3,CAP_Polarity_Rising);
-//		CAP_setCapEvtPolarity(obj->capHandle[i],CAP_Event_4,CAP_Polarity_Falling);
-//
-//		CAP_enableTimestampCounter(obj->capHandle[i]);
-//		CAP_enableCaptureLoad(obj->capHandle[i]);
-//	}
 }
 
 //void HAL_setupPwmDacs(HAL_Handle handle)

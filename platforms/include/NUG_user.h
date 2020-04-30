@@ -71,7 +71,7 @@ extern "C" {
 //! \brief All frequencies are converted into (pu) based on the ratio to this value
 //! \brief this value MUST be larger than the maximum speed that you are expecting from the motor 
 //#define USER_IQ_FULL_SCALE_FREQ_Hz        (800.0)   // 800 Example with buffer for 8-pole 6 KRPM motor to be run to 10 KRPM with field weakening; Hz =(RPM * Poles) / 120
-#define USER_IQ_FULL_SCALE_FREQ_Hz        (200.0)  // 46-pole 300rpm
+#define USER_IQ_FULL_SCALE_FREQ_Hz        (200.0)  // 46-pole 300rpm 115Hz
 
 //! \brief Defines full scale value for the IQ30 variable of Voltage inside the system
 //! \brief All voltages are converted into (pu) based on the ratio to this value
@@ -724,7 +724,7 @@ extern "C" {
 #define USER_MOTOR_MAX_CURRENT          (20.0)
 #define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
 
-#define USER_MOTOR_ENCODER_LINES		(1.0)
+#define USER_MOTOR_ENCODER_LINES		(80.0)
 #define	USER_MOTOR_MAX_SPEED_KRPM		(0.4)
 #define	USER_SYSTEM_INERTIA				(0.02)
 #define	USER_SYSTEM_FRICTION			(0.01)
