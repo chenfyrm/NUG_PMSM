@@ -44,7 +44,8 @@
 
 // modules
 
-
+//#include "user_hall.h"
+//#include "user_enc.h"
 
 // platforms
 
@@ -77,7 +78,7 @@ extern "C" {
 
 // **************************************************************************
 // the globals
-
+extern bool gFlag_enableHallBLDC;
 
 
 // **************************************************************************
@@ -2355,6 +2356,7 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
   CTRL_Obj *obj = (CTRL_Obj *)handle;
 
   _iq angle_pu;
+  _iq speed_pu;
 
   MATH_vec2 phasor;
 
@@ -2374,6 +2376,22 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
 
  // generate the motor electrical angle
  angle_pu = EST_getAngle_pu(obj->estHandle);
+
+
+ //--------------------------------angle combine-------------------------------------
+// speed_pu = EST_getFe_pu(obj->estHandle);
+// if(speed_pu>0.06)
+//	 angle_pu = EST_getAngle_pu(obj->estHandle);
+//  else if(speed_pu<0.05)
+// 	 angle_pu = ENC_getElecAngle_pu(encHandle[0]);
+
+// else if((speed_pu<0.05)&&(speed_pu>0.005))
+// {
+//	 angle_pu = ENC_getElecAngle_pu(encHandle[0]);
+//	 encHandle[0]->elec_prevAngle_pu = angle_pu;
+// }
+// else if(speed_pu<0.0025)
+//	 angle_pu = encHandle[0]->elec_prevAngle_pu;
 
 
  // compute the sin/cos phasor
@@ -2501,6 +2519,8 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
      CTRL_computePhasor(angleComp_pu,&phasor);
    }
 
+ CTRL_computePhasor(angle_pu,&phasor);
+
 
  // set the phasor in the inverse Park transform
  IPARK_setPhasor(obj->iparkHandle,&phasor);
@@ -2515,6 +2535,182 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
 
  return;
 } // end of CTRL_runOnLine_User() function
+
+////! \brief      Runs the online user controller
+////! \details    An implementation of the field oriented control.  The online user controller
+////!             is executed in user's memory i.e. RAM/FLASH and can be changed in any way
+////!             suited to the user.
+////! \param[in]  handle    The controller (CTRL) handle
+////! \param[in]  pAdcData  The pointer to the ADC data
+////! \param[out] pPwmData  The pointer to the PWM data
+//inline void CTRL_runOnLine_User(CTRL_Handle handle,
+//                           const HAL_AdcData_t *pAdcData,HAL_PwmData_t *pPwmData)
+//{
+//  CTRL_Obj *obj = (CTRL_Obj *)handle;
+//
+//  _iq angle_pu;
+//
+//  MATH_vec2 phasor;
+//
+//
+// // run Clarke transform on current
+// CLARKE_run(obj->clarkeHandle_I,&pAdcData->I,CTRL_getIab_in_addr(handle));
+//
+//
+// // run Clarke transform on voltage
+// CLARKE_run(obj->clarkeHandle_V,&pAdcData->V,CTRL_getVab_in_addr(handle));
+//
+//
+// // run the estimator
+// EST_run(obj->estHandle,CTRL_getIab_in_addr(handle),CTRL_getVab_in_addr(handle),
+//         pAdcData->dcBus,TRAJ_getIntValue(obj->trajHandle_spd));
+//
+//
+// // generate the motor electrical angle
+// angle_pu = EST_getAngle_pu(obj->estHandle);
+//
+// //
+//
+//
+// // compute the sin/cos phasor
+// CTRL_computePhasor(angle_pu,&phasor);
+//
+//
+// // set the phasor in the Park transform
+// PARK_setPhasor(obj->parkHandle,&phasor);
+//
+//
+// // run the Park transform
+// PARK_run(obj->parkHandle,CTRL_getIab_in_addr(handle),CTRL_getIdq_in_addr(handle));
+//
+//
+// // when appropriate, run the PID speed controller
+// if(CTRL_doSpeedCtrl(handle))
+//   {
+//     _iq refValue = TRAJ_getIntValue(obj->trajHandle_spd);
+//     _iq fbackValue = EST_getFm_pu(obj->estHandle);
+//     _iq outMax = TRAJ_getIntValue(obj->trajHandle_spdMax);
+//     _iq outMin = -outMax;
+//
+//     // reset the speed count
+//     CTRL_resetCounter_speed(handle);
+//
+//     PID_setMinMax(obj->pidHandle_spd,outMin,outMax);
+//
+//     PID_run_spd(obj->pidHandle_spd,refValue,fbackValue,CTRL_getSpd_out_addr(handle));
+//   }
+//
+//
+// // when appropriate, run the PID Id and Iq controllers
+// if(CTRL_doCurrentCtrl(handle))
+//   {
+//     _iq Kp_Id = CTRL_getKp(handle,CTRL_Type_PID_Id);
+//     _iq Kp_Iq = CTRL_getKp(handle,CTRL_Type_PID_Iq);
+//     _iq refValue;
+//     _iq fbackValue;
+//     _iq outMin,outMax;
+//
+//     // read max voltage vector to set proper limits to current controllers
+//     _iq maxVsMag = CTRL_getMaxVsMag_pu(handle);
+//
+//
+//     // reset the current count
+//     CTRL_resetCounter_current(handle);
+//
+//     // ***********************************
+//     // configure and run the Id controller
+//
+//     // compute the Kp gain
+//     // Scale Kp instead of output to prevent saturation issues
+//     if(CTRL_getFlag_enableDcBusComp(handle))
+//       {
+//         Kp_Id = _IQmpy(Kp_Id,EST_getOneOverDcBus_pu(obj->estHandle));
+//       }
+//
+//     PID_setKp(obj->pidHandle_Id,Kp_Id);
+//
+//     // compute the reference value
+//     refValue = TRAJ_getIntValue(obj->trajHandle_Id) + CTRL_getId_ref_pu(handle);
+//
+//     // update the Id reference value
+//     EST_updateId_ref_pu(obj->estHandle,&refValue);
+//
+//     // get the feedback value
+//     fbackValue = CTRL_getId_in_pu(handle);
+//
+//     // set minimum and maximum for Id controller output
+//     outMax = maxVsMag;
+//     outMin = -outMax;
+//
+//     // set the minimum and maximum values
+//     PID_setMinMax(obj->pidHandle_Id,outMin,outMax);
+//
+//     // run the Id PID controller
+//     PID_run(obj->pidHandle_Id,refValue,fbackValue,CTRL_getVd_out_addr(handle));
+//
+//     // ***********************************
+//     // configure and run the Iq controller
+//
+//     // compute the Kp gain
+//     // Scale Kp instead of output to prevent saturation issues
+//     if(CTRL_getFlag_enableDcBusComp(handle))
+//       {
+//         Kp_Iq = _IQmpy(Kp_Iq,EST_getOneOverDcBus_pu(obj->estHandle));
+//       }
+//
+//     PID_setKp(obj->pidHandle_Iq,Kp_Iq);
+//
+//     // get the reference value
+//     if(CTRL_getFlag_enableSpeedCtrl(handle))
+//       {
+//         refValue = CTRL_getSpd_out_pu(handle);
+//       }
+//     else
+//       {
+//         // get the Iq reference value
+//         refValue = CTRL_getIq_ref_pu(handle);
+//       }
+//
+//     // get the feedback value
+//     fbackValue = CTRL_getIq_in_pu(handle);
+//
+//     // set minimum and maximum for Id controller output
+//     outMax = _IQsqrt(_IQmpy(maxVsMag,maxVsMag) - _IQmpy(CTRL_getVd_out_pu(handle),CTRL_getVd_out_pu(handle)));
+//     outMin = -outMax;
+//
+//     // set the minimum and maximum values
+//     PID_setMinMax(obj->pidHandle_Iq,outMin,outMax);
+//
+//     // run the Iq PID controller
+//     PID_run(obj->pidHandle_Iq,refValue,fbackValue,CTRL_getVq_out_addr(handle));
+//   }
+//
+//   {
+//     _iq angleComp_pu;
+//
+//
+//     // compensate angle delay
+//     angleComp_pu = CTRL_angleDelayComp(handle, angle_pu);
+//
+//
+//     // compute the sin/cos phasor
+//     CTRL_computePhasor(angleComp_pu,&phasor);
+//   }
+//
+//
+// // set the phasor in the inverse Park transform
+// IPARK_setPhasor(obj->iparkHandle,&phasor);
+//
+//
+// // run the inverse Park module
+// IPARK_run(obj->iparkHandle,CTRL_getVdq_out_addr(handle),CTRL_getVab_out_addr(handle));
+//
+//
+// // run the space Vector Generator (SVGEN) module
+// SVGEN_run(obj->svgenHandle,CTRL_getVab_out_addr(handle),&(pPwmData->Tabc));
+//
+// return;
+//} // end of CTRL_runOnLine_User() function
 
 
 //! \brief      Runs the online controller

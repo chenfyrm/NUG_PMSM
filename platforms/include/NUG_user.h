@@ -99,8 +99,8 @@ extern "C" {
 //! \brief All currents are converted into (pu) based on the ratio to this value
 //! \brief WARNING: this value MUST be larger than the maximum current readings that you are expecting from the motor or the reading will roll over to 0, creating a control issue 
 //#define USER_IQ_FULL_SCALE_CURRENT_A          (41.25)   // 41.25 Example for drv8301_revd typical usage
-#define USER_IQ_FULL_SCALE_CURRENT_A          (40.0)   // 1.5kW 32VAC
-
+//#define USER_IQ_FULL_SCALE_CURRENT_A          (64.0)   // 1.5kW 19VAC 300rpm
+#define USER_IQ_FULL_SCALE_CURRENT_A          (100.0)   // 1.5kW 19VAC 300rpm
 
 //! \brief Defines the maximum current at the AD converter
 //! \brief The value that will be represented by the maximum ADC input (3.3V) and conversion (0FFFh)
@@ -286,7 +286,8 @@ extern "C" {
 
 //! \brief Defines maximum acceleration for the estimation speed profiles, Hz/s
 //! \brief Only used during Motor ID (commission)
-#define USER_MAX_ACCEL_EST_Hzps           (5.0)         // 5.0 Default, don't change
+//#define USER_MAX_ACCEL_EST_Hzps           (5.0)         // 5.0 Default, don't change
+#define USER_MAX_ACCEL_EST_Hzps           (2.0)         // 5.0 Default, don't change
 
 //! \brief Defines the maximum current slope for Id trajectory during estimation
 #define USER_MAX_CURRENT_SLOPE           (USER_MOTOR_RES_EST_CURRENT/USER_IQ_FULL_SCALE_CURRENT_A/USER_TRAJ_FREQ_Hz)      // USER_MOTOR_RES_EST_CURRENT/USER_IQ_FULL_SCALE_CURRENT_A/USER_TRAJ_FREQ_Hz Default, don't change
@@ -362,369 +363,29 @@ extern "C" {
 
 //! \brief Define each motor with a unique name and ID number
 // BLDC & SMPM motors
-#define Estun_EMJ_04APB22           101
-#define Anaheim_BLY172S             102
-#define Anaheim_BLWS235D            103
-#define My_Motor                    104
-#define hobby_3p5T                  105
-#define hobby_4p5T                  106
-#define small_hobby                 107
-#define teknic_2310P                108
-#define hobbywing_ezrun_8p5T        109
-#define eflite_helicopter_420       110
-#define GE_pump                     111
-
 #define My_Motor1					113
-
-// IPM motors
-// If user provides separate Ls-d, Ls-q
-// else treat as SPM with user or identified average Ls
-#define ebike_48v_large_dia_afsel_hfi   201
-#define Anaheim_Salient                 202
-#define Tamagawa_A01001033000           203
 
 
 //! \brief Uncomment the motor which should be included at compile
 //! \brief These motor ID settings and motor parameters are then available to be used by the control system
 //! \brief Once your ideal settings and parameters are identified update the motor section here so it is available in the binary code
-//#define USER_MOTOR Estun_EMJ_04APB22 //
-//#define USER_MOTOR Anaheim_BLY172S //
-//#define USER_MOTOR Anaheim_BLWS235D
-//#define USER_MOTOR hobby_3p5T //
-//#define USER_MOTOR hobby_4p5T //
-//#define USER_MOTOR GE_pump
-//#define USER_MOTOR My_Motor //
-//#define USER_MOTOR small_hobby //
-//#define USER_MOTOR teknic_2310P //
-//#define USER_MOTOR hobbywing_ezrun_8p5T //
-//#define USER_MOTOR eflite_helicopter_420 //
-//#define USER_MOTOR ebike_48v_large_dia_afsel_hfi //
-//#define USER_MOTOR Anaheim_Salient //
-//#define USER_MOTOR Tamagawa_A01001033000 //
-
 #define USER_MOTOR My_Motor1 //
 
-
-#if (USER_MOTOR == Estun_EMJ_04APB22)                  // Name must match the motor #define
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm  // Motor_Type_Pm (All Synchronous: BLDC, PMSM, SMPM, IPM) or Motor_Type_Induction (Asynchronous ACI)
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)            // PAIRS, not total poles. Used to calculate user RPM from rotor Hz only
-#define USER_MOTOR_Rr                   (NULL)         // Induction motors only, else NULL
-#define USER_MOTOR_Rs                   (2.303403)     // Identified phase to neutral resistance in a Y equivalent circuit (Ohms, float)
-#define USER_MOTOR_Ls_d                 (0.008464367)  // For PM, Identified average stator inductance  (Henry, float)
-#define USER_MOTOR_Ls_q                 (0.008464367)  // For PM, Identified average stator inductance  (Henry, float)
-#define USER_MOTOR_RATED_FLUX           (0.38)         // Identified TOTAL flux linkage between the rotor and the stator (V/Hz)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)         // Induction motors only, else NULL
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)          // During Motor ID, maximum current (Amperes, float) used for Rs estimation, 10-20% rated current
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)         // During Motor ID, maximum current (negative Amperes, float) used for Ls estimation, use just enough to enable rotation
-#define USER_MOTOR_MAX_CURRENT          (3.82)         // CRITICAL: Used during ID and run-time, sets a limit on the maximum current command output of the provided Speed PI Controller to the Iq controller
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)         // During Motor ID, maximum commanded speed (Hz, float), ~10% rated
-
-#elif (USER_MOTOR == hobbywing_ezrun_8p5T)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (1)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.01366183)
-#define USER_MOTOR_Ls_d                 (1.556967e-05)
-#define USER_MOTOR_Ls_q                 (1.556967e-05)
-#define USER_MOTOR_RATED_FLUX           (0.009272549)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (3.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-2.0)
-#define USER_MOTOR_MAX_CURRENT          (10.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (60.0)
-
-#elif (USER_MOTOR == eflite_helicopter_420)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (3)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.01953091)
-#define USER_MOTOR_Ls_d                 (2.998549e-06)
-#define USER_MOTOR_Ls_q                 (2.998549e-06)
-#define USER_MOTOR_RATED_FLUX           (0.003449948)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (3.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-3.0)
-#define USER_MOTOR_MAX_CURRENT          (15.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (80.0)
-
-#elif (USER_MOTOR == GE_pump)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.1931403)
-#define USER_MOTOR_Ls_d                 (0.0001903657)
-#define USER_MOTOR_Ls_q                 (0.0001903657)
-#define USER_MOTOR_RATED_FLUX           (0.06034314)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)
-#define USER_MOTOR_MAX_CURRENT          (8.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-
-#elif (USER_MOTOR == ebike_48v_large_dia_afsel_hfi)    //Set pwm to 15KHz and decimation to 1 when using IPD_HFI
+#if (USER_MOTOR == My_Motor1)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
 #define USER_MOTOR_NUM_POLE_PAIRS       (23)
 #define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.08971651)
-#define USER_MOTOR_Ls_d                 (0.0002238307)
-#define USER_MOTOR_Ls_q                 (0.0002238307)
-#define USER_MOTOR_RATED_FLUX           (0.1752851)
+#define USER_MOTOR_Rs                   (0.05643)
+#define USER_MOTOR_Ls_d                 (0.0001093)
+#define USER_MOTOR_Ls_q                 (0.0001093)
+#define USER_MOTOR_RATED_FLUX           (0.1318)
 #define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (4.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)
+#define USER_MOTOR_RES_EST_CURRENT      (5.0)			// A - suggested to set to 10% or 20% of rated motor current
+#define USER_MOTOR_IND_EST_CURRENT      (-5.0)
 #define USER_MOTOR_MAX_CURRENT          (40.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-#define IPD_HFI_EXC_FREQ_HZ             (937.5)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (10.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (20.0)        // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (15.7)        // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.2)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.1)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.5)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.2)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/1.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(1.0))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.7))
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)			// Hz -
 
-#elif (USER_MOTOR == hobby_3p5T)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.0149275)
-#define USER_MOTOR_Ls_d                 (2.575126e-06)
-#define USER_MOTOR_Ls_q                 (2.575126e-06)
-#define USER_MOTOR_RATED_FLUX           (0.003589415)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (15.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-5.0)
-#define USER_MOTOR_MAX_CURRENT          (30.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (60.0)
-
-#elif (USER_MOTOR == hobby_4p5T)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.01420126)
-#define USER_MOTOR_Ls_d                 (6.466606e-06)
-#define USER_MOTOR_Ls_q                 (6.466606e-06)
-#define USER_MOTOR_RATED_FLUX           (0.004845501)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (5.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-5.0)
-#define USER_MOTOR_MAX_CURRENT          (10.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (60.0)
-
-#elif (USER_MOTOR == teknic_2310P)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.3654691)
-#define USER_MOTOR_Ls_d                 (0.0002068772)
-#define USER_MOTOR_Ls_q                 (0.0002068772)
-#define USER_MOTOR_RATED_FLUX           (0.04052209)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)
-#define USER_MOTOR_MAX_CURRENT          (5.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-
-#elif (USER_MOTOR == small_hobby)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (6)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (1.277921)
-#define USER_MOTOR_Ls_d                 (0.0001230481)
-#define USER_MOTOR_Ls_q                 (0.0001230481)
-#define USER_MOTOR_RATED_FLUX           (0.004417491)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (0.5)
-#define USER_MOTOR_IND_EST_CURRENT      (-0.5)
-#define USER_MOTOR_MAX_CURRENT          (5.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (200.0)
-
-#elif (USER_MOTOR == Anaheim_BLY172S)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.3968007)
-#define USER_MOTOR_Ls_d                 (0.0006708066)
-#define USER_MOTOR_Ls_q                 (0.0006708066)
-#define USER_MOTOR_RATED_FLUX           (0.03433958)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)
-#define USER_MOTOR_MAX_CURRENT          (5.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-
-#define USER_MOTOR_FREQ_LOW				(10.0)			// Hz - suggested to set to 10% of rated motor frequency
-#define USER_MOTOR_FREQ_HIGH			(100.0)			// Hz - suggested to set to 100% of rated motor frequency
-#define USER_MOTOR_FREQ_MAX				(110.0)			// Hz - suggested to set to 120% of rated motor frequency
-#define USER_MOTOR_VOLT_MIN				(3.0)			// Volt - suggested to set to 15% of rated motor voltage
-#define USER_MOTOR_VOLT_MAX				(45.0)			// Volt - suggested to set to 100% of rated motor voltage
-
-// IPD and AFSEL settings below are not necessarily valid for this motor
-// Added so that proj_lab21 compiles without errors with default user.h settings
-#define IPD_HFI_EXC_FREQ_HZ             (750.0)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (35.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (100.0)       // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (60.0)       // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.25)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.2)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.5)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.5)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/10.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(0.4))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.4))
-
-
-#elif (USER_MOTOR == Anaheim_BLWS235D)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm  // Motor_Type_Pm (All Synchronous: BLDC, PMSM, SMPM, IPM) or Motor_Type_Induction (Asynchronous ACI)
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)            // PAIRS, not total poles. Used to calculate user RPM from rotor Hz only
-#define USER_MOTOR_Rr                   (NULL)         // Induction motors only, else NULL
-#define USER_MOTOR_Rs                   (5.310565)     // Identified phase to neutral resistance in a Y equivalent circuit (Ohms, float)
-#define USER_MOTOR_Ls_d                 (0.02047198)   // For PM, Identified average stator inductance  (Henry, float)
-#define USER_MOTOR_Ls_q                 (0.02047198)   // For PM, Identified average stator inductance  (Henry, float)
-#define USER_MOTOR_RATED_FLUX           (0.6824858)    // Identified TOTAL flux linkage between the rotor and the stator (V/Hz)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)         // Induction motors only, else NULL
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)          // During Motor ID, maximum current (Amperes, float) used for Rs estimation, 10-20% rated current
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)         // During Motor ID, maximum current (negative Amperes, float) used for Ls estimation, use just enough to enable rotation
-#define USER_MOTOR_MAX_CURRENT          (3.82)         // CRITICAL: Used during ID and run-time, sets a limit on the maximum current command output of the provided Speed PI Controller to the Iq controller
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)         // During Motor ID, maximum commanded speed (Hz, float), ~10% rated
-
-#define IPD_HFI_EXC_FREQ_HZ             (750.0)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (35.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (100.0)       // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (60.0)       // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.25)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.2)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.5)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.5)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/10.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(0.4))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.4))
-
-#elif (USER_MOTOR == Anaheim_Salient)   //Set pwm to 15KHz and decimation to 1 when using IPD_HFI
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.1215855)
-#define USER_MOTOR_Ls_d                 (0.0002298828)
-#define USER_MOTOR_Ls_q                 (0.0002298828)
-#define USER_MOTOR_RATED_FLUX           (0.04821308)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (2.0)         // Enter amperes(float)
-#define USER_MOTOR_IND_EST_CURRENT      (-0.5)        // Enter negative amperes(float)
-#define USER_MOTOR_MAX_CURRENT          (10.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-#define IPD_HFI_EXC_FREQ_HZ             (750.0)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (35.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (100.0)       // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (60.0)       // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.25)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.2)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.5)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.5)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/10.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(0.4))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.4))
-
-#elif (USER_MOTOR == Tamagawa_A01001033000)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (4)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.2763638)
-#define USER_MOTOR_Ls_d                 (0.0004606206)
-#define USER_MOTOR_Ls_q                 (0.0004606206)
-#define USER_MOTOR_RATED_FLUX           (0.04945183)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)         // Enter amperes(float)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)        // Enter negative amperes(float)
-#define USER_MOTOR_MAX_CURRENT          (3.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-#define IPD_HFI_EXC_FREQ_HZ             (750.0)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (10.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (20.0)        // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (31.4)        // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.2)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.2)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.2)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.1)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/1.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(0.4))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.4))
-
-#elif (USER_MOTOR == My_Motor)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-//#define USER_MOTOR_NUM_POLE_PAIRS       (2)
-#define USER_MOTOR_NUM_POLE_PAIRS       (23)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (NULL)
-#define USER_MOTOR_Ls_d                 (NULL)
-#define USER_MOTOR_Ls_q                 (NULL)
-#define USER_MOTOR_RATED_FLUX           (NULL)
-//#define USER_MOTOR_Rr                   (NULL)
-//#define USER_MOTOR_Rs                   (0.03918252)
-//#define USER_MOTOR_Ls_d                 (0.00013495)
-//#define USER_MOTOR_Ls_q                 (0.00013495)
-//#define USER_MOTOR_RATED_FLUX           (0.018)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (1.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-1.0)
-//#define USER_MOTOR_RES_EST_CURRENT      (3.0)
-//#define USER_MOTOR_IND_EST_CURRENT      (-0.5)
-#define USER_MOTOR_MAX_CURRENT          (20.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (20.0)
-#define IPD_HFI_EXC_FREQ_HZ             (750.0)       // excitation frequency, Hz
-#define IPD_HFI_LP_SPD_FILT_HZ          (10.0)        // lowpass filter cutoff frequency, Hz
-#define IPD_HFI_HP_IQ_FILT_HZ           (20.0)        // highpass filter cutoff frequency, Hz
-#define IPD_HFI_KSPD                    (31.4)        // the speed gain value
-#define IPD_HFI_EXC_MAG_COARSE_PU       (0.2)         // coarse IPD excitation magnitude, pu
-#define IPD_HFI_EXC_MAG_FINE_PU         (0.2)         // fine IPD excitation magnitude, pu
-#define IPD_HFI_EXC_TIME_COARSE_S       (0.2)         // coarse wait time, sec max 0.64
-#define IPD_HFI_EXC_TIME_FINE_S         (0.1)         // fine wait time, sec max 0.4
-#define AFSEL_FREQ_HIGH_PU              (_IQ(20.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_FREQ_LOW_PU               (_IQ(10.0 / USER_IQ_FULL_SCALE_FREQ_Hz))
-#define AFSEL_IQ_SLOPE_EST              (_IQ((float)(1.0/0.1/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_HFI              (_IQ((float)(1.0/1.0/USER_ISR_FREQ_Hz)))
-#define AFSEL_IQ_SLOPE_THROTTLE_DWN     (_IQ((float)(1.0/0.05/USER_ISR_FREQ_Hz)))
-#define AFSEL_MAX_IQ_REF_EST            (_IQ(0.4))
-#define AFSEL_MAX_IQ_REF_HFI            (_IQ(0.4))
-
-#elif (USER_MOTOR == My_Motor1)
-#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
-#define USER_MOTOR_NUM_POLE_PAIRS       (23)
-#define USER_MOTOR_Rr                   (NULL)
-#define USER_MOTOR_Rs                   (0.056)
-#define USER_MOTOR_Ls_d                 (0.0001)
-#define USER_MOTOR_Ls_q                 (0.0001)
-#define USER_MOTOR_RATED_FLUX           (0.136)
-#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
-#define USER_MOTOR_RES_EST_CURRENT      (3.0)
-#define USER_MOTOR_IND_EST_CURRENT      (-3.0)
-#define USER_MOTOR_MAX_CURRENT          (20.0)
-#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
-
-#define USER_MOTOR_ENCODER_LINES		(80.0)
+#define USER_MOTOR_ENCODER_LINES		(600.0*7.5)
 #define	USER_MOTOR_MAX_SPEED_KRPM		(0.4)
 #define	USER_SYSTEM_INERTIA				(0.02)
 #define	USER_SYSTEM_FRICTION			(0.01)
@@ -736,63 +397,6 @@ extern "C" {
 #define USER_MOTOR_VOLT_MIN				(3.0)			// Volt - suggested to set to 15% of rated motor voltage
 #define USER_MOTOR_VOLT_MAX				(32.0)			// Volt - suggested to set to 100% of rated motor voltage
 
-
-
-
-#else
-#error No motor type specified
-#endif
-
-#ifndef USER_MOTOR
-#error Motor is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_TYPE
-#error The motor type is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_NUM_POLE_PAIRS
-#error Number of motor pole pairs is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_Rr
-#error The rotor resistance is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_Rs
-#error The stator resistance is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_Ls_d
-#error The direct stator inductance is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_Ls_q
-#error The quadrature stator inductance is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_RATED_FLUX
-#error The rated flux of motor is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_MAGNETIZING_CURRENT
-#error The magnetizing current is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_RES_EST_CURRENT
-#error The resistance estimation current is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_IND_EST_CURRENT
-#error The inductance estimation current is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_MAX_CURRENT
-#error The maximum current is not defined in user.h
-#endif
-
-#ifndef USER_MOTOR_FLUX_EST_FREQ_Hz
-#error The flux estimation frequency is not defined in user.h
 #endif
 
 

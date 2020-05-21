@@ -146,7 +146,7 @@ void USER_setParams(USER_Params *pUserParams)
   pUserParams->estWaitTime[EST_State_Idle]            = 0;
   pUserParams->estWaitTime[EST_State_RoverL]          = (uint_least32_t)( 8.0 * USER_EST_FREQ_Hz);
   pUserParams->estWaitTime[EST_State_Rs]              = 0;
-  pUserParams->estWaitTime[EST_State_RampUp]          = (uint_least32_t)((5.0 + USER_MOTOR_FLUX_EST_FREQ_Hz / USER_MAX_ACCEL_EST_Hzps) * USER_EST_FREQ_Hz);
+  pUserParams->estWaitTime[EST_State_RampUp]          = (uint_least32_t)((10.0 + USER_MOTOR_FLUX_EST_FREQ_Hz / USER_MAX_ACCEL_EST_Hzps) * USER_EST_FREQ_Hz);
   pUserParams->estWaitTime[EST_State_IdRated]         = (uint_least32_t)(30.0 * USER_EST_FREQ_Hz);
   pUserParams->estWaitTime[EST_State_RatedFlux_OL]    = (uint_least32_t)( 0.2 * USER_EST_FREQ_Hz);
   pUserParams->estWaitTime[EST_State_RatedFlux]       = 0;

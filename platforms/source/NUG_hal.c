@@ -896,6 +896,13 @@ void HAL_setParams(HAL_Handle handle,const USER_Params *pUserParams)
   HAL_setVoltageScaleFactor(handle,voltage_sf);
  }
 
+ {
+	 obj->adcBias.dcBus = _IQ(0.0);
+	 obj->adcBias.TBoard = _IQ(0.0);
+	 obj->adcBias.TChop = _IQ(0.0);
+	 obj->adcBias.TMotor = _IQ(0.0);
+ }
+
  return;
 } // end of HAL_setParams() function
 
@@ -1223,6 +1230,7 @@ void HAL_setupGpios(HAL_Handle handle)
 //  GPIO_setMode(obj->gpioHandle,GPIO_Number_54,GPIO_54_Mode_EQEP2A);
 //  GPIO_setMode(obj->gpioHandle,GPIO_Number_55,GPIO_55_Mode_EQEP2B);
 
+//output
 
   //右电磁阀 高开
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_6,GPIO_Pullup_Enable);
@@ -1236,9 +1244,9 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setMode(obj->gpioHandle,GPIO_Number_7,GPIO_7_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_7,GPIO_Direction_Output);
 
-  //风扇0 1 开关
+  //风扇0 1 高速开关 高开
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_10,GPIO_Pullup_Enable);
-//  GPIO_setLow(obj->gpioHandle,GPIO_Number_10); //控制未知
+  GPIO_setLow(obj->gpioHandle,GPIO_Number_10);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_10,GPIO_10_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_10,GPIO_Direction_Output);
 
@@ -1260,7 +1268,7 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setMode(obj->gpioHandle,GPIO_Number_42,GPIO_42_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_42,GPIO_Direction_Output);
 
-  //风扇 电源 芯片使能   低使能
+  //风扇 电源 芯片使能 低速开关   低使能
   GPIO_setPullup(obj->gpioHandle,GPIO_Number_43,GPIO_Pullup_Enable);
   GPIO_setHigh(obj->gpioHandle,GPIO_Number_43);
   GPIO_setMode(obj->gpioHandle,GPIO_Number_43,GPIO_43_Mode_GeneralPurpose);
@@ -1296,6 +1304,7 @@ void HAL_setupGpios(HAL_Handle handle)
   GPIO_setMode(obj->gpioHandle,GPIO_Number_58,GPIO_58_Mode_GeneralPurpose);
   GPIO_setDirection(obj->gpioHandle,GPIO_Number_58,GPIO_Direction_Output);
 
+//input
 
   //机械臂接口判断
   GPIO_setMode(obj->gpioHandle,GPIO_Number_8,GPIO_8_Mode_GeneralPurpose);
@@ -1580,8 +1589,12 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
   QEP_clear_posn_counter(obj->qepHandle[qep]);
 
   // setup the max position
-//  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES)-1);
+  if(qep==HAL_Qep_QEP1){
+  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES)-1);
+  }else if(qep==HAL_Qep_QEP2)
+  {
   QEP_set_max_posn_count(obj->qepHandle[qep], 0xFFFFFFFF);
+  }
 
   // setup the QUPRD
   if(qep==HAL_Qep_QEP1)
@@ -1623,12 +1636,12 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
 //  QEP_disable_capture(obj->qepHandle[qep]);
   if(qep==HAL_Qep_QEP1)
   {
-	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_16_Prescale); // UPEVNT 1/4 QCLK
-	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_64); // CAPCLK 90/128 MHz
+	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_16_Prescale); // UPEVNT 1/16 QCLK
+	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_64); // CAPCLK 90/64 MHz
   }
   else if(qep==HAL_Qep_QEP2)
   {
-	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_2_Prescale); // UPEVNT 1/4 QCLK
+	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_4_Prescale); // UPEVNT 1/4 QCLK
 	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_128); // CAPCLK 90/128 MHz
   }
   QEP_enable_capture(obj->qepHandle[qep]);
@@ -1733,7 +1746,7 @@ void HAL_setupSpiA(HAL_Handle handle)
   SPI_enable(obj->spiAHandle);
 
   return;
-}  // end of HAL_setupSpiB() function
+}  // end of HAL_setupSpiA() function
 
 
 void HAL_setupSciB(HAL_Handle handle)

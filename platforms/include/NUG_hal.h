@@ -182,11 +182,11 @@ extern "C" {
 
 //! \brief Defines the chopper enable
 //!
-#define HAL_enableCHOPPER()			(HAL_setGpioHigh(halHandle,GPIO_Number_42))
+#define HAL_enableCHOPPER()			(HAL_setGpioHigh((HAL_Handle)&hal,GPIO_Number_42))
 
 //! \brief Defines the chopper disable
 //!
-#define HAL_disableCHOPPER()		(HAL_setGpioLow(halHandle,GPIO_Number_42))
+#define HAL_disableCHOPPER()		(HAL_setGpioLow((HAL_Handle)&hal,GPIO_Number_42))
 
 // **************************************************************************
 // the typedefs
@@ -201,49 +201,26 @@ typedef enum
 } HAL_QepSelect_e;
 
 
-//! \brief Enumeration for the LED numbers
-//!
-//typedef enum
-//{
-////  HAL_Gpio_LED2=GPIO_Number_31,  //!< GPIO pin number for ControlCARD LED 2
-////  HAL_Gpio_LED3=GPIO_Number_34   //!< GPIO pin number for ControlCARD LED 3
-//  HAL_Gpio_LED2=GPIO_Number_39,  //!< GPIO pin number for LED 2
-//  HAL_Gpio_LED4=GPIO_Number_44   //!< GPIO pin number for LED 4
-//} HAL_LedNumber_e;
-  
-// select whether to use the hall input on connector J4 or J10 of the EVM
-#define JH_J4
-//#define JH_J10
-
-#ifdef JH_J4
 //! \brief Enumeration for the Hall GPIO numbers
 //!
 typedef enum
 {
-  HAL_HallGpio_A=GPIO_Number_20,  //!< GPIO pin number for Hall Sensor A
-  HAL_HallGpio_B=GPIO_Number_21,  //!< GPIO pin number for Hall Sensor B
-  HAL_HallGpio_C=GPIO_Number_23   //!< GPIO pin number for Hall Sensor C
+  HAL_HallGpio_A=GPIO_Number_11,  //!< GPIO pin number for Hall Sensor A
+  HAL_HallGpio_B=GPIO_Number_15,  //!< GPIO pin number for Hall Sensor B
+  HAL_HallGpio_C=GPIO_Number_9   //!< GPIO pin number for Hall Sensor C
 } HAL_HallGpio_e;
-#else
-//! \brief Enumeration for the Hall GPIO numbers
-//!
-typedef enum
-{
-  HAL_HallGpio_A=GPIO_Number_24,  //!< GPIO pin number for Hall Sensor A
-  HAL_HallGpio_B=GPIO_Number_25,  //!< GPIO pin number for Hall Sensor B
-  HAL_HallGpio_C=GPIO_Number_26   //!< GPIO pin number for Hall Sensor C
-} HAL_HallGpio_e;
-#endif
 
+//! \brief Enumeration for the Output GPIO numbers
+//!
 typedef enum
 {
 	HAL_Vavle_R=GPIO_Number_6,
 	HAL_Vavle_L=GPIO_Number_7,
-	HAL_Fan_All=GPIO_Number_10,
+	HAL_Fan_All=GPIO_Number_10, //¸ßËÙ
 //	GPIO_Number_34
 	HAL_Gpio_LED2=GPIO_Number_39,
-	HAL_Chop=GPIO_Number_42,
-	HAL_FanSrc=GPIO_Number_43,
+	HAL_Chopper=GPIO_Number_42,
+	HAL_FanSrc=GPIO_Number_43, //µÍËÙ
 	HAL_Gpio_LED4=GPIO_Number_44,
 	//	GPIO_Number_50
 	HAL_Drv_Relay=GPIO_Number_51,
@@ -251,6 +228,8 @@ typedef enum
 	HAL_I2CBus_Rst=GPIO_Number_58
 }HAL_GPIO_Output_e;
 
+//! \brief Enumeration for the Input GPIO numbers
+//!
 typedef enum
 {
 	//	GPIO_Number_8

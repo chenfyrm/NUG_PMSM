@@ -1,15 +1,13 @@
 /*
 //###########################################################################
 //
-// FILE:    F28069M.cmd
+// FILE:    F28069.cmd
 //
-// TITLE:   Linker Command File For F28069M Device
+// TITLE:   Linker Command File For F28069 Device
 //
 //###########################################################################
-// $TI Release: F2806x C/C++ Header Files and Peripheral Examples V151 $ 
-// $Release Date: February  2, 2016 $ 
-// $Copyright: Copyright (C) 2011-2016 Texas Instruments Incorporated -
-//             http://www.ti.com/ ALL RIGHTS RESERVED $
+// $TI Release: F2806x C/C++ Header Files and Peripheral Examples V135 $ 
+// $Release Date: Sep 8, 2012 $ 
 //###########################################################################
 */
 
@@ -44,7 +42,7 @@
 
 /* 2) In your project add the path to <base>\F2806x_headers\cmd to the
    library search path under project->build options, linker tab,
-   library search path (-i).
+   library search path (-i). */
 /*========================================================= */
 
 /* Define the memory block start/length for the F2806x
@@ -67,8 +65,7 @@ MEMORY
 {
 PAGE 0 :   /* Program Memory */
            /* Memory (RAM/FLASH/OTP) blocks can be moved to PAGE1 for data allocation */
-   RAML0       : origin = 0x008000, length = 0x000800     /* on-chip RAM block L0 */
-   RAML1       : origin = 0x008800, length = 0x000400     /* on-chip RAM block L1 */
+   RAML0_1     : origin = 0x008000, length = 0x000C00     /* on-chip RAM block L0 and L1 */
    OTP         : origin = 0x3D7800, length = 0x000400     /* on-chip OTP */
 
    FLASHH      : origin = 0x3D8000, length = 0x004000     /* on-chip FLASH */
@@ -103,7 +100,7 @@ PAGE 1 :   /* Data Memory */
    RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
    RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
    RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
-   RAML8       : origin = 0x012000, length = 0x001800     /* on-chip RAM block L8 */
+   RAML8       : origin = 0x012000, length = 0x001800     /* on-chip RAM block L8. From 0x13800 to 0x14000 is reserved for InstaSPIN */
    USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */   
 }
 
@@ -124,7 +121,7 @@ SECTIONS
    .text               : > FLASHA_B,   PAGE = 0
    codestart           : > BEGIN,      PAGE = 0
    ramfuncs            : LOAD = FLASHD,
-                         RUN = RAML0,
+                         RUN = RAML0_1,
                          LOAD_START(_RamfuncsLoadStart),
                          LOAD_END(_RamfuncsLoadEnd),
                          RUN_START(_RamfuncsRunStart),
@@ -173,7 +170,7 @@ SECTIONS
    /* Uncomment the section below if calling the IQNasin() or IQasin()
       functions from the IQMath.lib library in order to utilize the
       relevant IQ Math table in Boot ROM (This saves space and Boot ROM
-      is 1 wait-state). If this section is not uncommented, IQmathTables2
+      is 1 wait-state). If this section is not uncommented, IQmathTables3
       will be loaded into other memory (SARAM, Flash, etc.) and will take
       up space, but 0 wait-state is possible.
    */
@@ -187,7 +184,7 @@ SECTIONS
    */
 
    /* .reset is a standard section used by the compiler.  It contains the */
-   /* the address of the start of _c_int00 for C Code.   /*
+   /* the address of the start of _c_int00 for C Code.  */
    /* When using the boot ROM this section and the CPU vector */
    /* table is not needed.  Thus the default type is set here to  */
    /* DSECT  */

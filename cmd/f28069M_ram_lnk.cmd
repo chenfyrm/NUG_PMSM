@@ -1,11 +1,13 @@
 /*
+// TI File $Revision: /main/3 $
+// Checkin $Date: March 3, 2011   13:45:43 $
 //###########################################################################
 //
-// FILE:    28069M_RAM_lnk.cmd
+// FILE:    28069_RAM_lnk.cmd
 //
-// TITLE:   Linker Command File For F28069M examples that run out of RAM
+// TITLE:   Linker Command File For F28069 examples that run out of RAM
 //
-//          This ONLY includes all SARAM blocks on the F28069M device.
+//          This ONLY includes all SARAM blocks on the F28069 device.
 //          This does not include flash or OTP.
 //
 //          Keep in mind that L0,L1,L2,L3 and L4 are protected by the code
@@ -15,10 +17,8 @@
 //          another memory map file which has more memory defined.
 //
 //###########################################################################
-// $TI Release: F2806x C/C++ Header Files and Peripheral Examples V151 $ 
-// $Release Date: February  2, 2016 $ 
-// $Copyright: Copyright (C) 2011-2016 Texas Instruments Incorporated -
-//             http://www.ti.com/ ALL RIGHTS RESERVED $
+// $TI Release: 2806x C/C++ Header Files V1.10 $ 
+// $Release Date: April 7, 2011 $ 
 //###########################################################################
 */
 
@@ -53,7 +53,7 @@
 
 /* 2) In your project add the path to <base>\F2806x_headers\cmd to the
    library search path under project->build options, linker tab,
-   library search path (-i).
+   library search path (-i). */
 /*========================================================= */
 
 /* Define the memory block start/length for the F2806x
@@ -78,13 +78,13 @@ PAGE 0 :
 
    BEGIN       : origin = 0x000000, length = 0x000002    /* BEGIN is used for the "boot to SARAM" bootloader mode   */
    RAMM0       : origin = 0x000050, length = 0x0003B0
-   RAML0_L7    : origin = 0x008000, length = 0x00A000	 /* on-chip RAM block RAML0-L6 */
+   RAML0_L8    : origin = 0x008000, length = 0x00B800	 /* on-chip RAM block RAML0-L8. From 0x13800 to 0x14000 is reserved for InstaSPIN */
 
    RESET       : origin = 0x3FFFC0, length = 0x000002
    FPUTABLES   : origin = 0x3FD590, length = 0x0006A0	 /* FPU Tables in Boot ROM */
    IQTABLES    : origin = 0x3FDC30, length = 0x000B50    /* IQ Math Tables in Boot ROM */
    IQTABLES2   : origin = 0x3FE780, length = 0x00008C    /* IQ Math Tables in Boot ROM */
-   IQTABLES3   : origin = 0x3FE80C, length = 0x0000AA	 /* IQ Math Tables in Boot ROM spruhj1 0x03fe8b6*/
+   IQTABLES3   : origin = 0x3FE80C, length = 0x0000AA	 /* IQ Math Tables in Boot ROM */
 
    BOOTROM    : origin = 0x3FF3B0, length = 0x000C10
 
@@ -109,18 +109,18 @@ SECTIONS
                         RUN_START(_RamfuncsRunStart),
                         LOAD_SIZE(_RamfuncsLoadSize),
                                     PAGE = 0
-   .text            : > RAML0_L7,   PAGE = 0
+   .text            : > RAML0_L8,   PAGE = 0
    .cinit           : > RAMM0,      PAGE = 0
    .pinit           : > RAMM0,      PAGE = 0
    .switch          : > RAMM0,      PAGE = 0
    .reset           : > RESET,      PAGE = 0, TYPE = DSECT /* not used, */
 
    .stack           : > RAMM1,      PAGE = 1
-   .ebss            : > RAML0_L7,   PAGE = 0
-   .econst          : > RAML0_L7,   PAGE = 0
-   .esysmem         : > RAML0_L7,   PAGE = 0
+   .ebss            : > RAML0_L8,   PAGE = 0
+   .econst          : > RAML0_L8,   PAGE = 0
+   .esysmem         : > RAML0_L8,   PAGE = 0
 
-   IQmath           : > RAML0_L7,   PAGE = 0
+   IQmath           : > RAML0_L8,   PAGE = 0
    IQmathTables     : > IQTABLES,   PAGE = 0, TYPE = NOLOAD
    
    /* Allocate FPU math areas: */
@@ -147,7 +147,7 @@ SECTIONS
    /* Uncomment the section below if calling the IQNasin() or IQasin()
       functions from the IQMath.lib library in order to utilize the
       relevant IQ Math table in Boot ROM (This saves space and Boot ROM
-      is 1 wait-state). If this section is not uncommented, IQmathTables2
+      is 1 wait-state). If this section is not uncommented, IQmathTables3
       will be loaded into other memory (SARAM, Flash, etc.) and will take
       up space, but 0 wait-state is possible.
    */
@@ -160,6 +160,8 @@ SECTIONS
    }
    */
 
+   Cla1Prog         : > RAML0_L8,       PAGE = 0
+   unsecure_data    : > RAML0_L8,       PAGE = 0
 }
 
 /*

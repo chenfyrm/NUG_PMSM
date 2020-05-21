@@ -72,7 +72,7 @@
 
 // **************************************************************************
 // the globals
-
+bool gFlag_enableHallBLDC = false;
 
 // **************************************************************************
 // the function prototypes
@@ -229,8 +229,16 @@ void CTRL_run(CTRL_Handle handle,HAL_Handle halHandle,
 
           if(EST_getState(obj->estHandle) >= EST_State_MotorIdentified)
             {
-              // run the online controller
-              CTRL_runOnLine_User(handle,pAdcData,pPwmData);
+        	  CTRL_runOnLine_User(handle,pAdcData,pPwmData);
+//        	  if(!gFlag_enableHallBLDC)
+//        	  {
+//        		  // run the online controller
+//        		  CTRL_runOnLine_User(handle,pAdcData,pPwmData);
+//        	  }
+//        	  else
+//        	  {
+//        		  HALL_Ctrl_run(hallHandle,pAdcData,pPwmData);
+//        	  }
             }
           else
             {
@@ -364,8 +372,10 @@ void CTRL_setParams(CTRL_Handle handle,USER_Params *pUserParams)
   CTRL_setFlag_enablePowerWarp(handle,false);
   CTRL_setFlag_enableCtrl(handle,false);
   CTRL_setFlag_enableOffset(handle,true);
-  CTRL_setFlag_enableSpeedCtrl(handle,true);
-  CTRL_setFlag_enableUserMotorParams(handle,false);
+//  CTRL_setFlag_enableSpeedCtrl(handle,true);
+  CTRL_setFlag_enableSpeedCtrl(handle,false);
+//  CTRL_setFlag_enableUserMotorParams(handle,false);
+  CTRL_setFlag_enableUserMotorParams(handle,true);
   CTRL_setFlag_enableDcBusComp(handle,true);
 
   // set flag to enable current controller
@@ -456,6 +466,11 @@ void CTRL_setParams(CTRL_Handle handle,USER_Params *pUserParams)
   
   // set the default estimator parameters
   CTRL_setEstParams(obj->estHandle,pUserParams);
+
+  // enable/disable the forced angle
+  EST_setFlag_enableForceAngle(obj->estHandle,false);
+
+  EST_setFlag_enableRsRecalc(obj->estHandle,true);
 
 
   // set the maximum modulation for the SVGEN module
