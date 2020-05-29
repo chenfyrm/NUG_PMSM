@@ -28,13 +28,16 @@ typedef struct _ENC_Obj_
 
 	// output
 	_iq elec_angle_pu;
+	_iq elec_trqAngle_pu;
 
 	_iq mech_angle_pu;
 	_iq mech_prevAngle_pu;
 	_iq mech_deltaAngle_pu;
 	_iq speed_pu;
 
-	uint16_t mech_rev_cnt;
+	_iq mech_pos_pu;
+
+	int16_t mech_rev_cnt;
 
 	bool flag_outOfGuage;
 

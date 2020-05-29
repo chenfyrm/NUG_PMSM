@@ -50,9 +50,9 @@
 
 
 
-#ifdef FLASH
-#pragma CODE_SECTION(HAL_setupFlash,"ramfuncs");
-#endif
+//#ifdef FLASH
+//#pragma CODE_SECTION(HAL_setupFlash,"ramfuncs");
+//#endif
 
 // **************************************************************************
 // the defines
@@ -1590,10 +1590,10 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
 
   // setup the max position
   if(qep==HAL_Qep_QEP1){
-  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES)-1);
+  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_MOTOR_ENCODER_LINES*16)-1);
   }else if(qep==HAL_Qep_QEP2)
   {
-  QEP_set_max_posn_count(obj->qepHandle[qep], 0xFFFFFFFF);
+  QEP_set_max_posn_count(obj->qepHandle[qep], (4*USER_REAR_ENCODER_LINES*16)-1);
   }
 
   // setup the QUPRD

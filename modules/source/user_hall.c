@@ -72,7 +72,7 @@ void HALL_setParams(HALL_Handle handle)
 //	obj->elec_speed_pu = _IQ(0.0);
 
 //	obj->flag_enableCurrentCtrl = true;
-//	obj->flag_enableSpeedCtrl = false;
+	obj->flag_enableSpeedCtrl = false;
 	obj->flag_enableBldc = false;
 
 	obj->bldcCnt = 0;
@@ -85,8 +85,8 @@ void HALL_setParams(HALL_Handle handle)
 //	obj->speed_ref_pu = _IQ(0.0);
 	obj->speed_fbk_pu = _IQ(0.0);
 
-	obj->speed_BldcToFoc_high_pu = _IQ(50.0*23/(60.0*200.0));
-	obj->speed_FocToBldc_low_pu = _IQ(25.0*23/(60.0*200.0));
+	obj->speed_BldcToFoc_high_pu = _IQ(300.0*23/(60.0*200.0));
+	obj->speed_FocToBldc_low_pu = _IQ(250.0*23/(60.0*200.0));
 
 
 	// set the default the Is PID controller parameters
@@ -114,7 +114,9 @@ void HALL_setParams(HALL_Handle handle)
 	return;
 }
 
-
+//#ifdef FLASH
+//#pragma CODE_SECTION(HALL_checkState,"ramfuncs");
+//#endif
 
 void HALL_checkState(HALL_Handle handle, HAL_Handle halHandle)
 {
@@ -172,7 +174,7 @@ void HALL_checkState(HALL_Handle handle, HAL_Handle halHandle)
 		if(obj->dir == 1)
 			obj->elec_initAngle_pu = _IQ(0.5833333 + 1.0*obj->tsCounter/obj->capCounter);
 		else if(obj->dir == 0)
-			obj->elec_initAngle_pu = _IQ(0.75 - 1.0*obj->tsCounter/obj->capCounter);
+			obj->elec_initAngle_pu = _IQ(0.0833333 - 1.0*obj->tsCounter/obj->capCounter);
 
 		obj->elec_initAngle_pu &= ((uint32_t) 0x00ffffff);
 	}
@@ -181,6 +183,10 @@ void HALL_checkState(HALL_Handle handle, HAL_Handle halHandle)
 
 	return;
 }
+
+//#ifdef FLASH
+//#pragma CODE_SECTION(HALL_Ctrl_run,"ramfuncs");
+//#endif
 
 void HALL_Ctrl_run(HALL_Handle handle, CTRL_Handle ctrlHandle, const HAL_AdcData_t *pAdcData, HAL_PwmData_t *pPwmData)
 {
@@ -226,17 +232,29 @@ void HALL_Ctrl_run(HALL_Handle handle, CTRL_Handle ctrlHandle, const HAL_AdcData
 
 	if(obj->flag_enableBldc)
 	{
-	_iq Is_fdb_pu = pAdcData->I.value[obj->Is_fdb_sel];
-	_iq Is_ref_pu = obj->Is_ref_pu;
+		_iq Is_ref_pu = obj->Is_ref_pu;
+		_iq Is_fdb_pu = pAdcData->I.value[obj->Is_fdb_sel];
 
-	// BLDC current loop
-	PID_run(obj->pidHandle_Is,Is_ref_pu,Is_fdb_pu,&obj->PwmDuty);
+		if(obj->flag_enableSpeedCtrl)
+		{
+			Is_ref_pu = ctrlHandle->spd_out;
+		}
 
-	HALL_Ctrl_PwmSet(handle, pPwmData);
+		obj->Is_ref_pu = Is_ref_pu;
+		obj->Is_fbk_pu = Is_fdb_pu;
+
+		// BLDC current loop
+		PID_run(obj->pidHandle_Is,Is_ref_pu,Is_fdb_pu,&obj->PwmDuty);
+
+		HALL_Ctrl_PwmSet(handle, pPwmData);
 	}
 
 	return;
 }
+
+//#ifdef FLASH
+//#pragma CODE_SECTION(HALL_Ctrl_PwmSet,"ramfuncs");
+//#endif
 
 //! \brief
 void HALL_Ctrl_PwmSet(HALL_Handle handle, HAL_PwmData_t *pPwmData)

@@ -1277,7 +1277,7 @@ static inline void HAL_writePwmData(HAL_Handle handle,HAL_PwmData_t *pPwmData)
   PWM_Obj *pwm;
   _iq period;
   _iq pwmData_neg;
-  _iq pwmData_sat;
+//  _iq pwmData_sat;
   _iq pwmData_sat_dc;
   _iq value;
   uint16_t value_sat;
@@ -1287,8 +1287,9 @@ static inline void HAL_writePwmData(HAL_Handle handle,HAL_PwmData_t *pPwmData)
       pwm = (PWM_Obj *)obj->pwmHandle[cnt];
       period = (_iq)pwm->TBPRD;
       pwmData_neg = _IQmpy(pPwmData->Tabc.value[cnt],_IQ(-1.0));
-      pwmData_sat = _IQsat(pwmData_neg,_IQ(0.5),_IQ(-0.5));
-      pwmData_sat_dc = pwmData_sat + _IQ(0.5);
+//      pwmData_sat = _IQsat(pwmData_neg,_IQ(0.5),_IQ(-0.5));
+//      pwmData_sat_dc = pwmData_sat + _IQ(0.5);
+      pwmData_sat_dc = pwmData_neg + _IQ(0.5);
       value = _IQmpy(pwmData_sat_dc, period);
       value_sat = (uint16_t)_IQsat(value, period, _IQ(0.0));
 

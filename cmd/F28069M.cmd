@@ -88,6 +88,8 @@ PAGE 0 :   /* Program Memory */
    RESET       : origin = 0x3FFFC0, length = 0x000002     /* part of boot ROM  */
    VECTORS     : origin = 0x3FFFC2, length = 0x00003E     /* part of boot ROM  */
 
+   RAML4567       : origin = 0x00A000, length = 0x008000     /* on-chip RAM block L4567 */
+
 PAGE 1 :   /* Data Memory */
            /* Memory (RAM/FLASH/OTP) blocks can be moved to PAGE0 for program allocation */
            /* Registers remain on PAGE1                                                  */
@@ -96,10 +98,14 @@ PAGE 1 :   /* Data Memory */
    RAMM0       : origin = 0x000050, length = 0x0003B0     /* on-chip RAM block M0 */
    RAMM1       : origin = 0x000400, length = 0x000400     /* on-chip RAM block M1 */
    RAML2_3     : origin = 0x008C00, length = 0x001400     /* on-chip RAM block L2 */
-   RAML4       : origin = 0x00A000, length = 0x002000     /* on-chip RAM block L4 */
-   RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
-   RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
-   RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
+
+  // RAML4       : origin = 0x00A000, length = 0x002000     /* on-chip RAM block L4 */
+  // RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
+  // RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
+ //  RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
+
+
+
    RAML8       : origin = 0x012000, length = 0x001800     /* on-chip RAM block L8. From 0x13800 to 0x14000 is reserved for InstaSPIN */
    USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */   
 }
@@ -116,16 +122,104 @@ SECTIONS
 {
 
    /* Allocate program areas: */
-   .cinit              : > FLASHA_B,   PAGE = 0
-   .pinit              : > FLASHA_B,   PAGE = 0
-   .text               : > FLASHA_B,   PAGE = 0
+//   .cinit              : > FLASHA_B,   PAGE = 0
+//   .pinit              : > FLASHA_B,   PAGE = 0
+//   .text               : > FLASHA_B,   PAGE = 0
+
+/*
+   .cinit                : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_cinit_LoadStart),
+                         LOAD_END(_cinit_LoadEnd),
+                         RUN_START(_cinit_RunStart),
+                         PAGE = 0
+
+   .pinit                : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_pinit_LoadStart),
+                         LOAD_END(_pinit_LoadEnd),
+                         RUN_START(_pinit_RunStart),
+                         PAGE = 0
+
+   .text                : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_text_LoadStart),
+                         LOAD_END(_text_LoadEnd),
+                         RUN_START(_text_RunStart),
+                         PAGE = 0
+
+   .const                : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_const_LoadStart),
+                         LOAD_END(_const_LoadEnd),
+                         RUN_START(_const_RunStart),
+                         PAGE = 0
+
+   .econst               : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_econst_LoadStart),
+                         LOAD_END(_econst_LoadEnd),
+                         RUN_START(_econst_RunStart),
+                         PAGE = 0
+
+   .switch                : LOAD = FLASHA_B,
+                         RUN = RAML4567,
+                         LOAD_START(_switch_LoadStart),
+                         LOAD_END(_switch_LoadEnd),
+                         RUN_START(_switch_RunStart),
+                         PAGE = 0
+                         */
+
+    .cinit			   :   LOAD = FLASHA_B,		            PAGE = 0
+                		   RUN = RAML4567,                    PAGE = 0
+                		   LOAD_START(_cinit_loadstart),
+                		   RUN_START(_cinit_runstart),
+                		   SIZE(_cinit_size)
+
+	.const			   :   LOAD = FLASHA_B,  	                PAGE = 0
+                		   RUN = RAML4567,	                PAGE = 0
+                		   LOAD_START(_const_loadstart),
+                		   RUN_START(_const_runstart),
+                		   SIZE(_const_size)
+
+	.econst			   :   LOAD = FLASHA_B,  	                PAGE = 0
+                		   RUN = RAML4567,                    PAGE = 0
+                		   LOAD_START(_econst_loadstart),
+               			   RUN_START(_econst_runstart),
+                		   SIZE(_econst_size)
+
+	.pinit			   :   LOAD = FLASHA_B,  	                PAGE = 0
+                		   RUN = RAML4567,                    PAGE = 0
+                		   LOAD_START(_pinit_loadstart),
+                		   RUN_START(_pinit_runstart),
+                		   SIZE(_pinit_size)
+
+	.switch			   :   LOAD = FLASHA_B,  	                PAGE = 0
+                		   RUN = RAML4567,                    PAGE = 0
+                		   LOAD_START(_switch_loadstart),
+                		   RUN_START(_switch_runstart),
+                		   SIZE(_switch_size)
+
+	.text			   :   LOAD = FLASHA_B, 		            PAGE = 0
+                		   RUN = RAML4567,                    PAGE = 0
+                		   LOAD_START(_text_loadstart),
+                		   RUN_START(_text_runstart),
+                		   SIZE(_text_size)
+
    codestart           : > BEGIN,      PAGE = 0
+   	wddisable		   : > FLASHA_B,      PAGE = 0
+   	copysections	   : > FLASHA_B,      PAGE = 0
+
+   /*
    ramfuncs            : LOAD = FLASHD,
-                         RUN = RAML0_1,
+                         RUN = RAML4567,
                          LOAD_START(_RamfuncsLoadStart),
                          LOAD_END(_RamfuncsLoadEnd),
                          RUN_START(_RamfuncsRunStart),
                          PAGE = 0
+                         */
+
+
 
    csmpasswds          : > CSM_PWL_P0, PAGE = 0
    csm_rsvd            : > CSM_RSVD,   PAGE = 0
@@ -147,10 +241,10 @@ SECTIONS
    /* Allocate FPU math areas: */
    FPUmathTables       : > FPUTABLES,  PAGE = 0, TYPE = NOLOAD
    
-   DMARAML5	           : > RAML5,      PAGE = 1
-   DMARAML6	           : > RAML6,      PAGE = 1
-   DMARAML7	           : > RAML7,      PAGE = 1
-   DMARAML8	           : > RAML8,      PAGE = 1   
+//   DMARAML5	           : > RAML5,      PAGE = 1
+//   DMARAML6	           : > RAML6,      PAGE = 1
+//   DMARAML7	           : > RAML7,      PAGE = 1
+//   DMARAML8	           : > RAML8,      PAGE = 1
 
   /* Uncomment the section below if calling the IQNexp() or IQexp()
       functions from the IQMath.lib library in order to utilize the

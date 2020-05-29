@@ -79,8 +79,12 @@ extern "C" {
 // **************************************************************************
 // the globals
 extern bool gFlag_enableHallBLDC;
-
-
+extern volatile _iq  prevAngle_pu ;
+extern volatile _iq  encAngle_pu;
+extern volatile _iq encAngle_pu_flt;
+extern _iq testVar;
+extern _iq estAngle_pu;
+extern _iq deltaAngle_pu;
 // **************************************************************************
 // the function prototypes
 
@@ -2378,20 +2382,37 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
  angle_pu = EST_getAngle_pu(obj->estHandle);
 
 
- //--------------------------------angle combine-------------------------------------
-// speed_pu = EST_getFe_pu(obj->estHandle);
-// if(speed_pu>0.06)
-//	 angle_pu = EST_getAngle_pu(obj->estHandle);
-//  else if(speed_pu<0.05)
-// 	 angle_pu = ENC_getElecAngle_pu(encHandle[0]);
+ {
+	 if(_IQabs(EST_getFe_pu(obj->estHandle)) < _IQ(0.0025))
+	 {
+//		 angle_pu = prevAngle_pu;
+		 angle_pu = encAngle_pu;
+	 }
+//	 else
+//	 {
+////		 prevAngle_pu = angle_pu;
+//		 prevAngle_pu = encAngle_pu;
+//	 }
+ }
 
-// else if((speed_pu<0.05)&&(speed_pu>0.005))
-// {
-//	 angle_pu = ENC_getElecAngle_pu(encHandle[0]);
-//	 encHandle[0]->elec_prevAngle_pu = angle_pu;
-// }
-// else if(speed_pu<0.0025)
-//	 angle_pu = encHandle[0]->elec_prevAngle_pu;
+
+ // when appropriate, run the PID speed controller
+ if(CTRL_doSpeedCtrl(handle))
+   {
+     _iq refValue = TRAJ_getIntValue(obj->trajHandle_spd);
+     _iq fbackValue = EST_getFm_pu(obj->estHandle);
+//     _iq outMax = TRAJ_getIntValue(obj->trajHandle_spdMax);
+     _iq outMax = obj->speed_outMax_pu;
+     _iq outMin = -outMax;
+
+     // reset the speed count
+     CTRL_resetCounter_speed(handle);
+
+     PID_setMinMax(obj->pidHandle_spd,outMin,outMax);
+
+     PID_run_spd(obj->pidHandle_spd,refValue,fbackValue,CTRL_getSpd_out_addr(handle));
+
+   }
 
 
  // compute the sin/cos phasor
@@ -2404,23 +2425,6 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
 
  // run the Park transform
  PARK_run(obj->parkHandle,CTRL_getIab_in_addr(handle),CTRL_getIdq_in_addr(handle));
-
-
- // when appropriate, run the PID speed controller
- if(CTRL_doSpeedCtrl(handle))
-   {
-     _iq refValue = TRAJ_getIntValue(obj->trajHandle_spd);
-     _iq fbackValue = EST_getFm_pu(obj->estHandle);
-     _iq outMax = TRAJ_getIntValue(obj->trajHandle_spdMax);
-     _iq outMin = -outMax;
-
-     // reset the speed count
-     CTRL_resetCounter_speed(handle);
-
-     PID_setMinMax(obj->pidHandle_spd,outMin,outMax);
-
-     PID_run_spd(obj->pidHandle_spd,refValue,fbackValue,CTRL_getSpd_out_addr(handle));
-   }
 
 
  // when appropriate, run the PID Id and Iq controllers
@@ -2529,6 +2533,9 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
  // run the inverse Park module
  IPARK_run(obj->iparkHandle,CTRL_getVdq_out_addr(handle),CTRL_getVab_out_addr(handle));
 
+// MATH_vec2 Vab_out;
+// Vab_out.value[0] = _IQmpy(CTRL_getVab_out_addr(handle)->value[0], EST_getOneOverDcBus_pu(obj->estHandle));
+// Vab_out.value[1] = _IQmpy(CTRL_getVab_out_addr(handle)->value[1], EST_getOneOverDcBus_pu(obj->estHandle));
 
  // run the space Vector Generator (SVGEN) module
  SVGEN_run(obj->svgenHandle,CTRL_getVab_out_addr(handle),&(pPwmData->Tabc));

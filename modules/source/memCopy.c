@@ -53,6 +53,11 @@
 // **************************************************************************
 // the functions
 
+
+#ifdef FLASH
+#pragma CODE_SECTION(memCopy,"copysections");
+#endif
+
 void memCopy(uint16_t *srcStartAddr,uint16_t *srcEndAddr,uint16_t *dstAddr)
 {
 

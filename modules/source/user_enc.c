@@ -46,6 +46,7 @@ void ENC_setParams(ENC_Handle handle, uint16_t numSlots, uint16_t polePairs)
 	obj->dirFlag = 0;
 
 	obj->elec_angle_pu = _IQ(0.0);
+	obj->elec_trqAngle_pu = _IQ(0.25);
 
 	obj->mech_angle_pu = _IQ(0.0);
 	obj->mech_prevAngle_pu = _IQ(0.0);
@@ -66,6 +67,8 @@ void ENC_setParams(ENC_Handle handle, uint16_t numSlots, uint16_t polePairs)
 	obj->mech_init_offset = 0;
 	obj->mech_init_angle = _IQ(0.0);
 
+	obj->mech_pos_pu = _IQ(0.0);
+
 	return;
 }
 
@@ -81,36 +84,71 @@ void ENC_calcCombElecAngle(ENC_Handle handle)
 
 	obj->elec_angle_pu = (_iq)temp;
 
+	//----------------------------------------------------------------------------------------
+	if((obj->elec_angle_pu < _IQ(1.0/12.0))&&(obj->elec_angle_pu >= _IQ(11.0/12.0)))
+	{
+		obj->elec_trqAngle_pu = _IQ(3.0/12.0) - obj->elec_angle_pu;
+	}
+	else if(obj->elec_angle_pu < _IQ(3.0/12.0))
+	{
+		obj->elec_trqAngle_pu = _IQ(5.0/12.0) - obj->elec_angle_pu;
+	}
+	else if(obj->elec_angle_pu < _IQ(5.0/12.0))
+	{
+		obj->elec_trqAngle_pu = _IQ(7.0/12.0) - obj->elec_angle_pu;
+	}
+	else if(obj->elec_angle_pu < _IQ(7.0/12.0))
+	{
+		obj->elec_trqAngle_pu = _IQ(9.0/12.0) - obj->elec_angle_pu;
+	}
+	else if(obj->elec_angle_pu < _IQ(9.0/12.0))
+	{
+		obj->elec_trqAngle_pu = _IQ(11.0/12.0) - obj->elec_angle_pu;
+	}
+	else if(obj->elec_angle_pu < _IQ(11.0/12.0))
+	{
+		obj->elec_trqAngle_pu = _IQ(1.0/12.0) - obj->elec_angle_pu;
+	}
+
+	obj->elec_trqAngle_pu &= ((uint32_t) 0x00ffffff);
+
+	obj->elec_trqAngle_pu = _IQsat(obj->elec_trqAngle_pu,_IQ(2.0/6.0), _IQ(1.0/6.0));
+
 	return;
 }
+
 
 void ENC_calcMechAngle(ENC_Handle handle)
 {
 	ENC_Obj *obj = (ENC_Obj *) handle;
-	uint32_t temp;
+	uint32_t temp1,temp2;
 
-	temp = (obj->mech_init_offset + obj->qposcnt)*obj->mech_angle_gain;
-	temp += obj->mech_init_angle;
-	temp &= ((uint32_t) 0x00ffffff);
+	temp1 = (obj->mech_init_offset + obj->qposcnt)*obj->mech_angle_gain;
+	temp2 = temp1;
+	temp1 += obj->mech_init_angle;
+	temp1 &= ((uint32_t) 0x00ffffff);
+	obj->mech_angle_pu = (_iq)temp1;
 
-	obj->mech_angle_pu = (_iq)temp;
+	temp2 &= ((uint32_t) 0x0fffffff);
+	temp2 = (uint32_t)_IQ(16.0) - temp2;
+	obj->mech_pos_pu = (_iq)temp2;
 
-	if(obj->dirFlag)
-	{
-		if(obj->mech_angle_pu > obj->mech_prevAngle_pu)
-			obj->speed_pu = (obj->mech_angle_pu - obj->mech_prevAngle_pu)*50.0;
-		else
-			obj->speed_pu = (obj->mech_angle_pu + _IQ(1.0) - obj->mech_prevAngle_pu)*50.0;
-	}
-	else
-	{
-		if(obj->mech_prevAngle_pu > obj->mech_angle_pu)
-			obj->speed_pu = (obj->mech_prevAngle_pu - obj->mech_angle_pu)*50.0;
-		else
-			obj->speed_pu = (obj->mech_prevAngle_pu + _IQ(1.0) - obj->mech_angle_pu)*50.0;
-	}
-
-	obj->mech_prevAngle_pu = obj->mech_angle_pu;
+//	if(obj->dirFlag)
+//	{
+//		if(obj->mech_angle_pu > obj->mech_prevAngle_pu)
+//			obj->speed_pu = _IQmpy((obj->mech_angle_pu - obj->mech_prevAngle_pu), _IQ(50.0));
+//		else
+//			obj->speed_pu = _IQmpy((obj->mech_angle_pu + _IQ(1.0) - obj->mech_prevAngle_pu), _IQ(50.0));
+//	}
+//	else
+//	{
+//		if(obj->mech_prevAngle_pu > obj->mech_angle_pu)
+//			obj->speed_pu = _IQmpy((obj->mech_prevAngle_pu - obj->mech_angle_pu), _IQ(50.0));
+//		else
+//			obj->speed_pu = _IQmpy((obj->mech_prevAngle_pu + _IQ(1.0) - obj->mech_angle_pu), _IQ(50.0));
+//	}
+//
+//	obj->mech_prevAngle_pu = obj->mech_angle_pu;
 
 	return;
 }

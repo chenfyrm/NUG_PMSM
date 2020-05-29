@@ -60,10 +60,10 @@
 
 
 
-#ifdef FLASH
-#pragma CODE_SECTION(CTRL_run,"ramfuncs");
-#pragma CODE_SECTION(CTRL_setup,"ramfuncs");
-#endif
+//#ifdef FLASH
+//#pragma CODE_SECTION(CTRL_run,"ramfuncs");
+//#pragma CODE_SECTION(CTRL_setup,"ramfuncs");
+//#endif
 
 
 // **************************************************************************
@@ -73,6 +73,17 @@
 // **************************************************************************
 // the globals
 bool gFlag_enableHallBLDC = false;
+
+volatile _iq  prevAngle_pu = _IQ(0.0);
+
+volatile _iq  encAngle_pu = _IQ(0.0);
+
+volatile _iq encAngle_pu_flt = _IQ(0.0);
+
+_iq testVar = _IQ(1.0);
+
+_iq estAngle_pu = _IQ(0.0);
+_iq deltaAngle_pu = _IQ(0.0);
 
 // **************************************************************************
 // the function prototypes
@@ -230,15 +241,6 @@ void CTRL_run(CTRL_Handle handle,HAL_Handle halHandle,
           if(EST_getState(obj->estHandle) >= EST_State_MotorIdentified)
             {
         	  CTRL_runOnLine_User(handle,pAdcData,pPwmData);
-//        	  if(!gFlag_enableHallBLDC)
-//        	  {
-//        		  // run the online controller
-//        		  CTRL_runOnLine_User(handle,pAdcData,pPwmData);
-//        	  }
-//        	  else
-//        	  {
-//        		  HALL_Ctrl_run(hallHandle,pAdcData,pPwmData);
-//        	  }
             }
           else
             {

@@ -69,7 +69,7 @@ void FLASH_clear3VStatus(FLASH_Handle flashHandle)
 } // end of FLASH_clear3VStatus() function
 
 
-#pragma CODE_SECTION(FLASH_disablePipelineMode, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_disablePipelineMode, "ramfuncs");
 void FLASH_disablePipelineMode(FLASH_Handle flashHandle)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -86,7 +86,7 @@ void FLASH_disablePipelineMode(FLASH_Handle flashHandle)
 } // end of FLASH_disablePipelineMode() function
 
 
-#pragma CODE_SECTION(FLASH_enablePipelineMode, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_enablePipelineMode, "ramfuncs");
 void FLASH_enablePipelineMode(FLASH_Handle flashHandle)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -190,7 +190,7 @@ FLASH_Handle FLASH_init(void *pMemory,const size_t numBytes)
 } // end of FLASH_init() function
 
 
-#pragma CODE_SECTION(FLASH_setActiveWaitCount, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setActiveWaitCount, "ramfuncs");
 void FLASH_setActiveWaitCount(FLASH_Handle flashHandle,const uint16_t count)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -206,7 +206,7 @@ void FLASH_setActiveWaitCount(FLASH_Handle flashHandle,const uint16_t count)
 } // end of FLASH_setActiveWaitCount() function
 
 
-#pragma CODE_SECTION(FLASH_setNumPagedReadWaitStates, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setNumPagedReadWaitStates, "ramfuncs");
 void FLASH_setNumPagedReadWaitStates(FLASH_Handle flashHandle,const FLASH_NumPagedWaitStates_e numStates)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -226,7 +226,7 @@ void FLASH_setNumPagedReadWaitStates(FLASH_Handle flashHandle,const FLASH_NumPag
 } // end of FLASH_setNumPagedReadWaitStates() function
 
 
-#pragma CODE_SECTION(FLASH_setNumRandomReadWaitStates, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setNumRandomReadWaitStates, "ramfuncs");
 void FLASH_setNumRandomReadWaitStates(FLASH_Handle flashHandle,const FLASH_NumRandomWaitStates_e numStates)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -246,7 +246,7 @@ void FLASH_setNumRandomReadWaitStates(FLASH_Handle flashHandle,const FLASH_NumRa
 } // end of FLASH_setNumRandomReadWaitStates() function
 
 
-#pragma CODE_SECTION(FLASH_setOtpWaitStates, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setOtpWaitStates, "ramfuncs");
 void FLASH_setOtpWaitStates(FLASH_Handle flashHandle,const FLASH_NumOtpWaitStates_e numStates)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -266,7 +266,7 @@ void FLASH_setOtpWaitStates(FLASH_Handle flashHandle,const FLASH_NumOtpWaitState
 } // end of FLASH_setOneTimeProgrammableStates() function
 
 
-#pragma CODE_SECTION(FLASH_setPowerMode, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setPowerMode, "ramfuncs");
 void FLASH_setPowerMode(FLASH_Handle flashHandle,const FLASH_PowerMode_e mode)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;
@@ -286,7 +286,7 @@ void FLASH_setPowerMode(FLASH_Handle flashHandle,const FLASH_PowerMode_e mode)
 } // end of FLASH_setPowerMode() function
 
 
-#pragma CODE_SECTION(FLASH_setStandbyWaitCount, "ramfuncs");
+//#pragma CODE_SECTION(FLASH_setStandbyWaitCount, "ramfuncs");
 void FLASH_setStandbyWaitCount(FLASH_Handle flashHandle,const uint16_t count)
 {
   FLASH_Obj *flash = (FLASH_Obj *)flashHandle;

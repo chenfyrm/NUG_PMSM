@@ -62,6 +62,8 @@ typedef struct _HALL_Obj_
 	bool Flag_secChanged;
 	bool flag_enableBldc;
 
+	bool flag_enableSpeedCtrl;
+
 }HALL_Obj,*HALL_Handle;
 
 // **************************************************************************

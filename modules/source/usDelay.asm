@@ -67,7 +67,7 @@
 ;//###########################################################################	
 
        .def _usDelay
-       .sect "ramfuncs"
+ ;//      .sect "ramfuncs"
 
         .global  __usDelay
 _usDelay:

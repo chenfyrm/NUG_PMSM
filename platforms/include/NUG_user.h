@@ -131,9 +131,9 @@ extern "C" {
 //#define   I_A_offset    (0.9983780384)
 //#define   I_B_offset    (0.9951030612)
 //#define   I_C_offset    (0.9840172529)
-#define   I_A_offset    (4.634248316)
-#define   I_B_offset    (4.633022964)
-#define   I_C_offset    (4.633250773)
+#define   I_A_offset    (1.750098526)
+#define   I_B_offset    (1.749509513)
+#define   I_C_offset    (1.748407722)
 
 
 
@@ -378,14 +378,14 @@ extern "C" {
 #define USER_MOTOR_Rs                   (0.05643)
 #define USER_MOTOR_Ls_d                 (0.0001093)
 #define USER_MOTOR_Ls_q                 (0.0001093)
-#define USER_MOTOR_RATED_FLUX           (0.1318)
+#define USER_MOTOR_RATED_FLUX           (0.1318) //0.02098Wb
 #define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
 #define USER_MOTOR_RES_EST_CURRENT      (5.0)			// A - suggested to set to 10% or 20% of rated motor current
 #define USER_MOTOR_IND_EST_CURRENT      (-5.0)
 #define USER_MOTOR_MAX_CURRENT          (40.0)
 #define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)			// Hz -
 
-#define USER_MOTOR_ENCODER_LINES		(600.0*7.5)
+#define USER_MOTOR_ENCODER_LINES		(600*7.5)
 #define	USER_MOTOR_MAX_SPEED_KRPM		(0.4)
 #define	USER_SYSTEM_INERTIA				(0.02)
 #define	USER_SYSTEM_FRICTION			(0.01)
@@ -396,6 +396,8 @@ extern "C" {
 #define USER_MOTOR_FREQ_MAX				(110.0)			// Hz - suggested to set to 120% of rated motor frequency
 #define USER_MOTOR_VOLT_MIN				(3.0)			// Volt - suggested to set to 15% of rated motor voltage
 #define USER_MOTOR_VOLT_MAX				(32.0)			// Volt - suggested to set to 100% of rated motor voltage
+
+#define USER_REAR_ENCODER_LINES			(64)
 
 #endif
 

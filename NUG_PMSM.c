@@ -46,6 +46,7 @@
 // system includes
 #include <math.h>
 #include "main.h"
+#include "uart.h"
 
 
 // **************************************************************************
@@ -72,6 +73,10 @@ uint_least16_t gCounter_updateGlobals = 0;
 
 bool Flag_Latch_softwareUpdate = true;
 
+uint16_t gPosTicker = 0;
+
+uint16_t gIsrTicker = 0;
+
 //------------------------------------------------------------------------
 USER_Params gUserParams;
 
@@ -84,20 +89,14 @@ HAL_PwmData_t gPwmData = {_IQ(0.0), _IQ(0.0), _IQ(0.0)};
 CTRL_Handle ctrlHandle;
 //-----------------------------------------------------------------------
 
-volatile MOTOR_Vars_t gMotorVars;
-volatile SYS_Vars_t gSysVars;
+volatile MOTOR_Vars_t gMotorVars = MOTOR_Vars_INIT;
+volatile SYS_Vars_t gSysVars = SYS_Vars_INIT;
 
 // Watch window interface to the 8301 SPI
 DRV_SPI_8301_Vars_t gDrvSpi8301Vars;
 
-_iq gIsRef_A = _IQ(0.0);
-
 _iq gMaxCurrentSlope = _IQ(0.0);
 
-#ifdef FLASH
-// Used for running BackGround in flash, and ISR in RAM
-		extern uint16_t *RamfuncsLoadStart, *RamfuncsLoadEnd, *RamfuncsRunStart;
-#endif
 
 //
 CPU_USAGE_Handle cpu_usageHandle;
@@ -112,30 +111,21 @@ ENC_Obj enc[2];
 HALL_Handle hallHandle;
 HALL_Obj hall;
 
+_iq torque;
+
 // **************************************************************************
 // the function prototypes
 
 // the interrupt function
-#ifdef FLASH
-#pragma CODE_SECTION(mainISR,"ramfuncs");
-#endif
 
 interrupt void mainISR(void);
 
+//_iq gVar = _IQ(0.5);
 
 // **************************************************************************
 // the functions
 
 void main(void) {
-
-	// Only used if running from FLASH
-	// Note that the v+ariable FLASH is defined by the project
-#ifdef FLASH
-	// Copy time critical code and Flash setup code to RAM
-	// The RamfuncsLoadStart, RamfuncsLoadEnd, and RamfuncsRunStart
-	// symbols are created by the linker. Refer to the linker files.
-	memCopy((uint16_t *)&RamfuncsLoadStart,(uint16_t *)&RamfuncsLoadEnd,(uint16_t *)&RamfuncsRunStart);
-#endif
 
 	//--------------------------------------USER----------------------------------------
 	{
@@ -154,11 +144,9 @@ void main(void) {
 
 		// initialize the user parameters
 		USER_setParams(&gUserParams);
-
-		SYS_setParams(&gSysVars);
-
-		MOTOR_setParams(&gMotorVars);
 	}
+
+//	gVar = _IQsat(_IQ(-2.0),_IQ(1.0),_IQ(-1.0));
 
 	//---------------------------------------HAL-------------------------------------------
 	{
@@ -191,16 +179,15 @@ void main(void) {
 
 		// initialize the encoder handle
 		encHandle[0] = ENC_init(&enc[0],sizeof(enc[0]));
-		ENC_setParams(encHandle[0],4500,23);
+		ENC_setParams(encHandle[0],USER_MOTOR_ENCODER_LINES,23);
 
 		// initialize the encoder handle
 		encHandle[1] = ENC_init(&enc[1],sizeof(enc[1]));
-		ENC_setParams(encHandle[1],64,1);
+		ENC_setParams(encHandle[1],USER_REAR_ENCODER_LINES,1);
 
 		// initialize the hall handle
 		hallHandle = HALL_init(&hall,sizeof(hall));
 		HALL_setParams(hallHandle);
-
 	}
 
 	//-------------------------------ENABLE INT---------------------------------
@@ -233,7 +220,8 @@ void main(void) {
 	}
 
 	//--------------------------------ENABLE SYS-----------------------------------------------
-	gSysVars.Flag_enableSys = true;
+//	gSysVars.Flag_enableSys = true;
+	gSysVars.flag_enablePosInitialize = true;
 
 	//---------------------------- Begin the background loop-------------------------------------
 	for (;;) {
@@ -243,6 +231,7 @@ void main(void) {
 
 		//UART_run();
 
+
 		// loop while the enable system flag is true
 		while (gSysVars.Flag_enableSys) {
 
@@ -250,6 +239,9 @@ void main(void) {
 
 			// increment counters
 			gCounter_updateGlobals++;
+
+			CTRL_setFlag_enableSpeedCtrl(ctrlHandle,
+					gMotorVars.Flag_enableSpeedCtrl);
 
 			// enable/disable the use of motor parameters being loaded from user.h
 			CTRL_setFlag_enableUserMotorParams(ctrlHandle,
@@ -287,15 +279,12 @@ void main(void) {
 					EST_State_e estState = EST_getState(obj->estHandle);
 
 					if (ctrlState == CTRL_State_OffLine) {
-						// Dis-able the Library internal PI.  Iq has no reference now
-						CTRL_setFlag_enableSpeedCtrl(ctrlHandle,
-								gMotorVars.Flag_enableSpeedCtrl);
 
 						// enable the PWM
 						HAL_enablePwm(halHandle);
 					} else if (ctrlState == CTRL_State_OnLine) {
 
-						HAL_turnLedOn(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
+
 
 						// update the ADC bias values
 						HAL_updateAdcBias(halHandle);
@@ -304,7 +293,7 @@ void main(void) {
 						HAL_enablePwm(halHandle);
 					} else if (ctrlState == CTRL_State_Idle) {
 
-						HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
+//						HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
 
 						// disable the PWM
 						HAL_disablePwm(halHandle);
@@ -361,19 +350,6 @@ void main(void) {
 	        // when indentifying recalculate Kp and Ki gains to fix the R/L limitation of 2000.0, and Kp limit to 0.11
 	        recalcKpKi(ctrlHandle);
 
-			//
-			if (CTRL_getFlag_enableSpeedCtrl(ctrlHandle)) {
-				CTRL_setSpd_ref_krpm(ctrlHandle, gMotorVars.SpeedRef_krpm);
-			} else {
-				// update Iq reference
-				updateIqRef(ctrlHandle);
-			}
-
-
-			_iq IsRef_pu = _IQmpy(gIsRef_A, _IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
-			HALL_setIs_ref_pu(hallHandle, IsRef_pu);
-
-
 	        // update CPU usage
 	        updateCPUusage();
 
@@ -414,6 +390,25 @@ void main(void) {
 	        	//	HAL_resetI2CBus(halHandle,(GPIO_Number_e)HAL_I2CBus_Rst);
 	        }
 
+	        bool flag_sysStateChanged = SYS_updateState(&gSysVars, &gMotorVars);
+
+	        if(flag_sysStateChanged)
+	        {
+	        	if(gSysVars.state == SYS_State_OnLine)
+	        	{
+	        		HAL_turnLedOn(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
+
+	        		encHandle[0]->mech_pos_pu = _IQ(0.0);
+	        		encHandle[0]->mech_init_offset = (uint32_t)encHandle[0]->num_enc_slots*4*16 - 1 - encHandle[0]->qposcnt;
+
+	        		encHandle[1]->mech_pos_pu = _IQ(0.0);
+	        		encHandle[1]->mech_init_offset = encHandle[1]->num_enc_slots*4*16 - 1 - encHandle[1]->qposcnt;
+	        	}
+	        	else
+	        		HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
+	        }
+
+
 			HAL_writeDrvData(halHandle, &gDrvSpi8301Vars);
 
 			HAL_readDrvData(halHandle, &gDrvSpi8301Vars);
@@ -422,9 +417,14 @@ void main(void) {
 
 
 		// set the default controller parameters (Reset the control to re-identify the motor)
-		SYS_setParams(&gSysVars);
-		MOTOR_setParams(&gMotorVars);
 		CTRL_setParams(ctrlHandle, &gUserParams);
+
+		//--------------------------------------------
+		HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
+		gSysVars.counter_state = 0;
+		gSysVars.flag_enablePosInitialize = true;
+		gSysVars.flag_posInitialized = 0;
+
 
 	} // end of for(;;) loop
 
@@ -457,11 +457,28 @@ interrupt void mainISR(void) {
 
 	ENC_calcCombElecAngle(encHandle[0]);
 
-	//-------------------------------------------------------------------------------------------------------
-	encHandle[1]->qposcnt = halHandle->qepHandle[1]->QPOSCNT;
-	encHandle[1]->dirFlag = QEP_read_status(halHandle->qepHandle[1])&QEP_QEPSTS_QDF; // 0 ccw, 1 cw
+	encAngle_pu = encHandle[0]->elec_angle_pu;
+	estAngle_pu = EST_getAngle_pu(ctrlHandle->estHandle);
+	deltaAngle_pu = encAngle_pu - estAngle_pu;
 
-	ENC_calcMechAngle(encHandle[1]);
+//	encAngle_pu_flt = encAngle_pu_flt + (encAngle_pu- encAngle_pu_flt)>>1;
+	encAngle_pu_flt = _IQmpy(encAngle_pu_flt, _IQ(0.5)) + _IQmpy(encAngle_pu, _IQ(0.5));
+
+//	testVar = testVar>>0x01 + _IQ(0.6)>>0x01;
+
+	//SCI
+	if(gIsrTicker++ >= 10000)
+		gIsrTicker = 0;
+
+	if(gIsrTicker%5000 == 0)
+		SCIB_TX_PRE(halHandle, &gMotorVars, &gSysVars);
+	if(gIsrTicker%10==0)
+		SCIB_TX(halHandle, &gMotorVars);
+
+	if(gIsrTicker%10==5) //1ms
+		SCIB_RX(halHandle, &gMotorVars);
+	if(gIsrTicker%5000 == 2500) //500ms
+		SCIB_RX_RSL(halHandle, &gMotorVars, &gSysVars);
 
 	// protect
 //	protect();
@@ -469,11 +486,130 @@ interrupt void mainISR(void) {
 	// chopper
 	chopper(&gAdcData);
 
+	if(gPosTicker++ > 10)  //1ms 1000Hz
+	{
+		gPosTicker = 0;
+
+		ENC_calcMechAngle(encHandle[0]);
+
+		//-------------------------------------------------------------------------------------------------------
+		encHandle[1]->qposcnt = halHandle->qepHandle[1]->QPOSCNT;
+		encHandle[1]->dirFlag = QEP_read_status(halHandle->qepHandle[1])&QEP_QEPSTS_QDF; // 0 ccw, 1 cw
+
+		ENC_calcMechAngle(encHandle[1]);
+
+		gSysVars.posNowMotor_pu = encHandle[0]->mech_pos_pu;
+		gSysVars.posNowLeft_pu = encHandle[1]->mech_pos_pu;
+		gSysVars.posNowRight_pu = _IQmpy(gSysVars.posNowMotor_pu, _IQ(2.0)) - gSysVars.posNowLeft_pu;
+
+		if(gSysVars.state == SYS_State_OnLine){
+			_iq refValue;
+//			_iq torque;
+
+			hallHandle->flag_enableSpeedCtrl = false;
+
+//			torque = gMotorVars.TorqueRef_Nm;
+
+			if (true)
+			{
+//				if (gSysVars.posNowMotor_pu < (gSysVars.posStart_pu - _IQ(0.01) ))
+//				{
+//					torque = 0.0;
+//				}
+//				else if (gSysVars.posNowMotor_pu
+//						> (gSysVars.posStop_pu + _IQ(0.01) ))
+//				{
+//					if (_IQabs(gMotorVars.Speed_krpm) < _IQ(0.005))
+//					{
+//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
+//
+//					}
+//					else if (gMotorVars.flag_dir)
+//					{
+//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
+//					}
+//					else
+//					{
+//						torque =
+//								_IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
+//					}
+//				}
+//				else if ((gSysVars.posNowMotor_pu
+//						> (gSysVars.posStart_pu + _IQ(0.01) ))
+//						&& (gSysVars.posNowMotor_pu
+//								< (gSysVars.posStop_pu - _IQ(0.01) )))
+//				{
+//					if (_IQabs(gMotorVars.Speed_krpm) < _IQ(0.005))
+//					{
+//						_iq dis = gSysVars.posStop_pu - gSysVars.posStart_pu;
+//
+//						if (_IQdiv((gSysVars.posNowMotor_pu-gSysVars.posStart_pu), dis)
+//								< 0.05)
+//							torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
+//						else if (_IQdiv((gSysVars.posStop_pu - gSysVars.posNowMotor_pu), dis)
+//								< 0.05)
+//							torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
+//					}
+//					else if (gMotorVars.flag_dir)
+//					{
+//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
+//					}
+//					else
+//					{
+//						torque =
+//								_IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
+//					}
+//				}
+
+				if (_IQabs(EST_getFm_pu(ctrlHandle->estHandle)) < _IQ(0.005))
+				{
+					torque = gMotorVars.TorqueRef_Nm;
+
+				}
+				else if (gMotorVars.flag_dir)
+				{
+					torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(0.7));
+				}
+				else
+				{
+					torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(1.3));
+				}
+			}
+			else
+			{
+
+			}
+
+			refValue = _IQdiv(torque, _IQ(34.5));
+			refValue = _IQdiv(refValue, _IQ(0.02098));
+			gMotorVars.IqRef_A = refValue;
+
+//			refValue = _IQdiv(torque, _IQ(38.042));//3/pi*1.732*23
+			    		refValue = _IQdiv(torque, _IQmpy(_IQ(39.836), _IQsinPU(encHandle[0]->elec_trqAngle_pu)));
+			refValue = _IQdiv(refValue, _IQ(0.02098));
+			gMotorVars.IsRef_A = refValue;
+
+			// update Iq reference
+			updateIqRef(ctrlHandle);
+
+			_iq IsRef_pu = _IQmpy(gMotorVars.IsRef_A, _IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
+			HALL_setIs_ref_pu(hallHandle, IsRef_pu);
+		}
+		else if(gSysVars.state == SYS_State_OffLine){
+			if (CTRL_getFlag_enableSpeedCtrl(ctrlHandle))
+			{
+				CTRL_setSpd_ref_krpm(ctrlHandle, gMotorVars.SpeedRef_krpm);
+				CTRL_setSpeed_outMax_pu(ctrlHandle, _IQ(0.05));
+				hallHandle->flag_enableSpeedCtrl = true;
+			}
+		}
+    }
+
 	// run the controller
 	CTRL_run(ctrlHandle, halHandle, &gAdcData, &gPwmData);
 
-	if((CTRL_getState(ctrlHandle) == CTRL_State_OnLine)&&(EST_getState(ctrlHandle->estHandle) >= EST_State_MotorIdentified))
-		HALL_Ctrl_run(hallHandle,ctrlHandle,&gAdcData,&gPwmData);
+//	if((CTRL_getState(ctrlHandle) == CTRL_State_OnLine)&&(EST_getState(ctrlHandle->estHandle) >= EST_State_MotorIdentified))
+//		HALL_Ctrl_run(hallHandle,ctrlHandle,&gAdcData,&gPwmData);
 
 	// write the PWM compare values
 	HAL_writePwmData(halHandle, &gPwmData);
@@ -491,56 +627,6 @@ interrupt void mainISR(void) {
 		ENC_setElecInitOffset(encHandle[0], (uint32_t)(HAL_getQepPosnMaximum(halHandle) - HAL_getQepPosnCounts(halHandle)),hallHandle->elec_initAngle_pu);
 	}
 
-	// ·ÖÊ±Âö³å¼ÆËã
-	if (++gSysVars.cnt_mainIsr >= 10)
-		gSysVars.cnt_mainIsr = 0;
-
-	switch(gSysVars.cnt_mainIsr)
-	{
-
-	case 0:
-	{
-		break;
-	}
-	case 1:
-	{
-		break;
-	}
-	case 2:
-	{
-		break;
-	}
-	case 3:
-	{
-		break;
-	}
-	case 4:
-	{
-		break;
-	}
-	case 5:
-	{
-		break;
-	}
-	case 6:
-	{
-		break;
-	}
-	case 7:
-	{
-		break;
-	}
-	case 8:
-	{
-		break;
-	}
-	case 9:
-	{
-		break;
-	}
-
-	}
-
 	// read the timer 1 value and update the CPU usage module
 	timer1Cnt = HAL_readTimerCnt(halHandle, 1);
 	CPU_USAGE_updateCnts(cpu_usageHandle, timer1Cnt);
@@ -551,37 +637,6 @@ interrupt void mainISR(void) {
 	return;
 } // end of mainISR() function
 
-
-//void updateGlobalVariables_motor(CTRL_Handle handle) {
-//	CTRL_Obj *obj = (CTRL_Obj *) handle;
-//
-//	// get the speed estimate
-//	gMotorVars.Speed_krpm = EST_getSpeed_krpm(obj->estHandle);
-//
-//	// get the stator resistance
-//	gMotorVars.Rs_Ohm = EST_getRs_Ohm(obj->estHandle);
-//
-//	// get the stator inductance in the direct coordinate direction
-//	gMotorVars.Lsd_H = EST_getLs_d_H(obj->estHandle);
-//
-//	// get the stator inductance in the quadrature coordinate direction
-//	gMotorVars.Lsq_H = EST_getLs_q_H(obj->estHandle);
-//
-//	// get the flux in V/Hz in floating point
-//	gMotorVars.Flux_VpHz = EST_getFlux_VpHz(obj->estHandle);
-//
-//	// get the controller state
-//	gMotorVars.CtrlState = CTRL_getState(handle);
-//
-//	// get the estimator state
-//	gMotorVars.EstState = EST_getState(obj->estHandle);
-//
-//	// Get the DC buss voltage
-//	gMotorVars.VdcBus_kV = _IQmpy(gAdcData.dcBus,
-//			_IQ(USER_IQ_FULL_SCALE_VOLTAGE_V/1000.0));
-//
-//	return;
-//} // end of updateGlobalVariables_motor() function
 
 void updateIqRef(CTRL_Handle handle) {
 	_iq iq_ref;
@@ -622,46 +677,6 @@ void updateCPUusage(void)
 
   return;
 } // end of updateCPUusage() function
-
-//void chopper(void)
-//{
-//	if(gAdcData.dcBus > _IQ(1.35))
-//		HAL_enableCHOPPER();
-//	else if(gAdcData.dcBus < _IQ(1.30))
-//		HAL_disableCHOPPER();
-//}
-
-//void recalcKpKi(CTRL_Handle handle)
-//{
-//  CTRL_Obj *obj = (CTRL_Obj *)handle;
-//  EST_State_e EstState = EST_getState(obj->estHandle);
-//
-//  if((EST_isMotorIdentified(obj->estHandle) == false) && (EstState == EST_State_Rs))
-//    {
-//      float_t Lhf = CTRL_getLhf(handle);
-//      float_t Rhf = CTRL_getRhf(handle);
-//      float_t RhfoverLhf = Rhf/Lhf;
-//      _iq Kp = _IQ(0.25*Lhf*USER_IQ_FULL_SCALE_CURRENT_A/(USER_CTRL_PERIOD_sec*USER_IQ_FULL_SCALE_VOLTAGE_V));
-//      _iq Ki = _IQ(RhfoverLhf*USER_CTRL_PERIOD_sec);
-//
-//      // set Rhf/Lhf
-//      CTRL_setRoverL(handle,RhfoverLhf);
-//
-//      // set the controller proportional gains
-//      CTRL_setKp(handle,CTRL_Type_PID_Id,Kp);
-//      CTRL_setKp(handle,CTRL_Type_PID_Iq,Kp);
-//
-//      // set the Id controller gains
-//      CTRL_setKi(handle,CTRL_Type_PID_Id,Ki);
-//      PID_setKi(obj->pidHandle_Id,Ki);
-//
-//      // set the Iq controller gains
-//      CTRL_setKi(handle,CTRL_Type_PID_Iq,Ki);
-//      PID_setKi(obj->pidHandle_Iq,Ki);
-//    }
-//
-//  return;
-//} // end of recalcKpKi() function
 
 //@} //defgroup
 // end of file
