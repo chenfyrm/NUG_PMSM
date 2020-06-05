@@ -85,6 +85,7 @@ extern volatile _iq encAngle_pu_flt;
 extern _iq testVar;
 extern _iq estAngle_pu;
 extern _iq deltaAngle_pu;
+extern _iq gAngle_pu;
 // **************************************************************************
 // the function prototypes
 
@@ -2378,22 +2379,23 @@ inline void CTRL_runOnLine_User(CTRL_Handle handle,
          pAdcData->dcBus,TRAJ_getIntValue(obj->trajHandle_spd));
 
 
- // generate the motor electrical angle
- angle_pu = EST_getAngle_pu(obj->estHandle);
+// // generate the motor electrical angle
+// angle_pu = EST_getAngle_pu(obj->estHandle);
 
 
  {
 	 if(_IQabs(EST_getFe_pu(obj->estHandle)) < _IQ(0.0025))
 	 {
-//		 angle_pu = prevAngle_pu;
-		 angle_pu = encAngle_pu;
+		 gAngle_pu = encAngle_pu;
+//		 gAngle_pu = encAngle_pu_flt;
 	 }
-//	 else
-//	 {
-////		 prevAngle_pu = angle_pu;
-//		 prevAngle_pu = encAngle_pu;
-//	 }
+	 else if(_IQabs(EST_getFe_pu(obj->estHandle)) > _IQ(0.01))
+	 {
+		 gAngle_pu = EST_getAngle_pu(obj->estHandle);
+	 }
  }
+
+ angle_pu = gAngle_pu;
 
 
  // when appropriate, run the PID speed controller

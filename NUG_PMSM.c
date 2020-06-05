@@ -77,6 +77,8 @@ uint16_t gPosTicker = 0;
 
 uint16_t gIsrTicker = 0;
 
+uint16_t gTrajTicker = 0;
+
 //------------------------------------------------------------------------
 USER_Params gUserParams;
 
@@ -91,12 +93,12 @@ CTRL_Handle ctrlHandle;
 
 volatile MOTOR_Vars_t gMotorVars = MOTOR_Vars_INIT;
 volatile SYS_Vars_t gSysVars = SYS_Vars_INIT;
+volatile MASS_Vars_t gMassVars;
 
 // Watch window interface to the 8301 SPI
 DRV_SPI_8301_Vars_t gDrvSpi8301Vars;
 
 _iq gMaxCurrentSlope = _IQ(0.0);
-
 
 //
 CPU_USAGE_Handle cpu_usageHandle;
@@ -105,13 +107,14 @@ float_t          gCpuUsagePercentageMin = 0.0;
 float_t          gCpuUsagePercentageAvg = 0.0;
 float_t          gCpuUsagePercentageMax = 0.0;
 
+TRAJ_Handle	trajHandle_iq;
+TRAJ_Obj	traj_iq;
+
 ENC_Handle encHandle[2];
 ENC_Obj enc[2];
 
 HALL_Handle hallHandle;
 HALL_Obj hall;
-
-_iq torque;
 
 // **************************************************************************
 // the function prototypes
@@ -120,7 +123,8 @@ _iq torque;
 
 interrupt void mainISR(void);
 
-//_iq gVar = _IQ(0.5);
+interrupt void tz3ISR(void);
+
 
 // **************************************************************************
 // the functions
@@ -144,9 +148,10 @@ void main(void) {
 
 		// initialize the user parameters
 		USER_setParams(&gUserParams);
-	}
 
-//	gVar = _IQsat(_IQ(-2.0),_IQ(1.0),_IQ(-1.0));
+		//------------------------------------
+		MASS_setParams(&gMassVars);
+	}
 
 	//---------------------------------------HAL-------------------------------------------
 	{
@@ -177,9 +182,17 @@ void main(void) {
 		CPU_USAGE_setParams(cpu_usageHandle, HAL_getTimerPeriod(halHandle, 1),
 				(uint32_t) USER_ISR_FREQ_Hz);
 
+		// initialize the traj handle
+		trajHandle_iq = TRAJ_init(&traj_iq, sizeof(traj_iq));
+		TRAJ_setIntValue(trajHandle_iq,_IQ(0.0));
+		TRAJ_setTargetValue(trajHandle_iq,_IQ(0.0));
+		TRAJ_setMinValue(trajHandle_iq,_IQ(-USER_MOTOR_MAX_CURRENT/USER_IQ_FULL_SCALE_CURRENT_A));
+		TRAJ_setMaxValue(trajHandle_iq,_IQ(USER_MOTOR_MAX_CURRENT/USER_IQ_FULL_SCALE_CURRENT_A));
+		TRAJ_setMaxDelta(trajHandle_iq,_IQ(USER_MOTOR_MAX_CURRENT/USER_IQ_FULL_SCALE_CURRENT_A/USER_TRAJ_FREQ_Hz*10.0));
+
 		// initialize the encoder handle
 		encHandle[0] = ENC_init(&enc[0],sizeof(enc[0]));
-		ENC_setParams(encHandle[0],USER_MOTOR_ENCODER_LINES,23);
+		ENC_setParams(encHandle[0],USER_MOTOR_ENCODER_LINES,USER_MOTOR_NUM_POLE_PAIRS);
 
 		// initialize the encoder handle
 		encHandle[1] = ENC_init(&enc[1],sizeof(enc[1]));
@@ -197,6 +210,8 @@ void main(void) {
 
 		// enable the ADC interrupts
 		HAL_enableAdcInts(halHandle);
+
+//		HAL_enablePwmTzInts(halHandle);
 
 		// enable global interrupts
 		HAL_enableGlobalInts(halHandle);
@@ -226,11 +241,7 @@ void main(void) {
 	//---------------------------- Begin the background loop-------------------------------------
 	for (;;) {
 
-//		// Waiting for enable system flag to be set
-//		while (!(gSysVars.Flag_enableSys));
-
-		//UART_run();
-
+		while (!gSysVars.Flag_enableSys);
 
 		// loop while the enable system flag is true
 		while (gSysVars.Flag_enableSys) {
@@ -246,12 +257,6 @@ void main(void) {
 			// enable/disable the use of motor parameters being loaded from user.h
 			CTRL_setFlag_enableUserMotorParams(ctrlHandle,
 					gMotorVars.Flag_enableUserParams);
-
-			//
-			if(EST_getState(obj->estHandle) >= EST_State_MotorIdentified)
-			{
-				gMotorVars.Flag_enableRsRecalc = false;
-			}
 
 			EST_setFlag_enableRsRecalc(ctrlHandle->estHandle,
 					gMotorVars.Flag_enableRsRecalc);
@@ -284,16 +289,12 @@ void main(void) {
 						HAL_enablePwm(halHandle);
 					} else if (ctrlState == CTRL_State_OnLine) {
 
-
-
 						// update the ADC bias values
 						HAL_updateAdcBias(halHandle);
 
 						// enable the PWM
 						HAL_enablePwm(halHandle);
 					} else if (ctrlState == CTRL_State_Idle) {
-
-//						HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
 
 						// disable the PWM
 						HAL_disablePwm(halHandle);
@@ -313,13 +314,10 @@ void main(void) {
 				// set the current ramp
 				EST_setMaxCurrentSlope_pu(obj->estHandle, gMaxCurrentSlope);
 
-
 				if (Flag_Latch_softwareUpdate) {
 					Flag_Latch_softwareUpdate = false;
 
 					USER_calcPIgains(ctrlHandle);
-
-					PID_setGains(hallHandle->pidHandle_Is, PID_getKp(ctrlHandle->pidHandle_Iq), PID_getKi(ctrlHandle->pidHandle_Iq), PID_getKd(ctrlHandle->pidHandle_Iq));
 				}
 
 			} else {
@@ -340,12 +338,6 @@ void main(void) {
 
 			if(gSysVars.cnt_mainIsr%1000 == 0) //100ms读一次温度
 				HAL_readAdcDataLsp(halHandle, &gAdcData);
-
-//			if(gSysVars.cnt_mainIsr%1000 == 500) //100ms读一次码盘速度
-//			{
-//				ENC_run(encHandle[0]);
-//				ENC_run(encHandle[1]);
-//			}
 
 	        // when indentifying recalculate Kp and Ki gains to fix the R/L limitation of 2000.0, and Kp limit to 0.11
 	        recalcKpKi(ctrlHandle);
@@ -390,6 +382,7 @@ void main(void) {
 	        	//	HAL_resetI2CBus(halHandle,(GPIO_Number_e)HAL_I2CBus_Rst);
 	        }
 
+
 	        bool flag_sysStateChanged = SYS_updateState(&gSysVars, &gMotorVars);
 
 	        if(flag_sysStateChanged)
@@ -398,16 +391,17 @@ void main(void) {
 	        	{
 	        		HAL_turnLedOn(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
 
-	        		encHandle[0]->mech_pos_pu = _IQ(0.0);
+
 	        		encHandle[0]->mech_init_offset = (uint32_t)encHandle[0]->num_enc_slots*4*16 - 1 - encHandle[0]->qposcnt;
 
-	        		encHandle[1]->mech_pos_pu = _IQ(0.0);
 	        		encHandle[1]->mech_init_offset = encHandle[1]->num_enc_slots*4*16 - 1 - encHandle[1]->qposcnt;
 	        	}
 	        	else
 	        		HAL_turnLedOff(halHandle, (GPIO_Number_e) HAL_Gpio_LED4);
 	        }
 
+	        //-------------------------------------------
+	        MASS_reProcess(&gMassVars);
 
 			HAL_writeDrvData(halHandle, &gDrvSpi8301Vars);
 
@@ -455,16 +449,11 @@ interrupt void mainISR(void) {
 	encHandle[0]->qposcnt = halHandle->qepHandle[0]->QPOSCNT;
 	encHandle[0]->dirFlag = QEP_read_status(halHandle->qepHandle[0])&QEP_QEPSTS_QDF;
 
-	ENC_calcCombElecAngle(encHandle[0]);
 
+
+	ENC_calcElecAngle(encHandle[0]);
 	encAngle_pu = encHandle[0]->elec_angle_pu;
-	estAngle_pu = EST_getAngle_pu(ctrlHandle->estHandle);
-	deltaAngle_pu = encAngle_pu - estAngle_pu;
-
-//	encAngle_pu_flt = encAngle_pu_flt + (encAngle_pu- encAngle_pu_flt)>>1;
-	encAngle_pu_flt = _IQmpy(encAngle_pu_flt, _IQ(0.5)) + _IQmpy(encAngle_pu, _IQ(0.5));
-
-//	testVar = testVar>>0x01 + _IQ(0.6)>>0x01;
+	encAngle_pu_flt = encHandle[0]->elec_angle_pu_flt;
 
 	//SCI
 	if(gIsrTicker++ >= 10000)
@@ -490,117 +479,63 @@ interrupt void mainISR(void) {
 	{
 		gPosTicker = 0;
 
-		ENC_calcMechAngle(encHandle[0]);
+		//------------------------------------------------------------------------------
+		HALL_calcElecSpd(hallHandle);
+
+		//--------------------------------------------------------------------------------
+		ENC_calcMechPos(encHandle[0]);
+		ENC_calcMechSpd(encHandle[0]);
+
+		gMassVars.posNowMass_pu = encHandle[0]->mech_pos_pu;
+		gMassVars.flag_dir = encHandle[0]->dirFlag;
 
 		//-------------------------------------------------------------------------------------------------------
 		encHandle[1]->qposcnt = halHandle->qepHandle[1]->QPOSCNT;
 		encHandle[1]->dirFlag = QEP_read_status(halHandle->qepHandle[1])&QEP_QEPSTS_QDF; // 0 ccw, 1 cw
 
-		ENC_calcMechAngle(encHandle[1]);
+		ENC_calcMechPos(encHandle[1]);
+		ENC_calcMechSpd(encHandle[1]);
 
 		gSysVars.posNowMotor_pu = encHandle[0]->mech_pos_pu;
 		gSysVars.posNowLeft_pu = encHandle[1]->mech_pos_pu;
 		gSysVars.posNowRight_pu = _IQmpy(gSysVars.posNowMotor_pu, _IQ(2.0)) - gSysVars.posNowLeft_pu;
 
+		//-------------------------------------------------------------------------
 		if(gSysVars.state == SYS_State_OnLine){
 			_iq refValue;
-//			_iq torque;
+			_iq torque;
 
-			hallHandle->flag_enableSpeedCtrl = false;
+			//-----------------------------------------------------------------
+			MASS_reProcess(&gMassVars);
+			MASS_calc(&gMassVars);
+			MASS_refGive(&gMassVars);
 
-//			torque = gMotorVars.TorqueRef_Nm;
+//			hallHandle->flag_enableSpeedCtrl = false;
 
-			if (true)
-			{
-//				if (gSysVars.posNowMotor_pu < (gSysVars.posStart_pu - _IQ(0.01) ))
-//				{
-//					torque = 0.0;
-//				}
-//				else if (gSysVars.posNowMotor_pu
-//						> (gSysVars.posStop_pu + _IQ(0.01) ))
-//				{
-//					if (_IQabs(gMotorVars.Speed_krpm) < _IQ(0.005))
-//					{
-//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
-//
-//					}
-//					else if (gMotorVars.flag_dir)
-//					{
-//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
-//					}
-//					else
-//					{
-//						torque =
-//								_IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
-//					}
-//				}
-//				else if ((gSysVars.posNowMotor_pu
-//						> (gSysVars.posStart_pu + _IQ(0.01) ))
-//						&& (gSysVars.posNowMotor_pu
-//								< (gSysVars.posStop_pu - _IQ(0.01) )))
-//				{
-//					if (_IQabs(gMotorVars.Speed_krpm) < _IQ(0.005))
-//					{
-//						_iq dis = gSysVars.posStop_pu - gSysVars.posStart_pu;
-//
-//						if (_IQdiv((gSysVars.posNowMotor_pu-gSysVars.posStart_pu), dis)
-//								< 0.05)
-//							torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
-//						else if (_IQdiv((gSysVars.posStop_pu - gSysVars.posNowMotor_pu), dis)
-//								< 0.05)
-//							torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
-//					}
-//					else if (gMotorVars.flag_dir)
-//					{
-//						torque = _IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueFw_sf);
-//					}
-//					else
-//					{
-//						torque =
-//								_IQmpy(gMotorVars.TorqueRef_Nm, gMotorVars.TorqueBw_sf);
-//					}
-//				}
-
-				if (_IQabs(EST_getFm_pu(ctrlHandle->estHandle)) < _IQ(0.005))
-				{
-					torque = gMotorVars.TorqueRef_Nm;
-
-				}
-				else if (gMotorVars.flag_dir)
-				{
-					torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(0.7));
-				}
-				else
-				{
-					torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(1.3));
-				}
-			}
+			if (_IQabs(EST_getFm_pu(ctrlHandle->estHandle)) < _IQ(0.005))
+				torque = gMotorVars.TorqueRef_Nm;
+			else if (gMotorVars.flag_dir)
+				torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(0.7));
 			else
-			{
+				torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(1.3));
 
-			}
+//			if (gMassVars.flag_seg)
+//				torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(0.7));
+//			else
+//				torque = _IQdiv(gMotorVars.TorqueRef_Nm, _IQ(1.3));
 
 			refValue = _IQdiv(torque, _IQ(34.5));
 			refValue = _IQdiv(refValue, _IQ(0.02098));
 			gMotorVars.IqRef_A = refValue;
 
-//			refValue = _IQdiv(torque, _IQ(38.042));//3/pi*1.732*23
-			    		refValue = _IQdiv(torque, _IQmpy(_IQ(39.836), _IQsinPU(encHandle[0]->elec_trqAngle_pu)));
-			refValue = _IQdiv(refValue, _IQ(0.02098));
-			gMotorVars.IsRef_A = refValue;
-
 			// update Iq reference
 			updateIqRef(ctrlHandle);
-
-			_iq IsRef_pu = _IQmpy(gMotorVars.IsRef_A, _IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
-			HALL_setIs_ref_pu(hallHandle, IsRef_pu);
 		}
 		else if(gSysVars.state == SYS_State_OffLine){
 			if (CTRL_getFlag_enableSpeedCtrl(ctrlHandle))
 			{
 				CTRL_setSpd_ref_krpm(ctrlHandle, gMotorVars.SpeedRef_krpm);
 				CTRL_setSpeed_outMax_pu(ctrlHandle, _IQ(0.05));
-				hallHandle->flag_enableSpeedCtrl = true;
 			}
 		}
     }
@@ -608,23 +543,27 @@ interrupt void mainISR(void) {
 	// run the controller
 	CTRL_run(ctrlHandle, halHandle, &gAdcData, &gPwmData);
 
-//	if((CTRL_getState(ctrlHandle) == CTRL_State_OnLine)&&(EST_getState(ctrlHandle->estHandle) >= EST_State_MotorIdentified))
-//		HALL_Ctrl_run(hallHandle,ctrlHandle,&gAdcData,&gPwmData);
-
 	// write the PWM compare values
 	HAL_writePwmData(halHandle, &gPwmData);
 
 	// setup the controller
 	CTRL_setup(ctrlHandle);
 
+	if(gTrajTicker++>10)
+	{
+		gTrajTicker = 0;
+
+		TRAJ_run(trajHandle_iq);
+	}
+
 	// if we are forcing alignment, using the Rs Recalculation, align the eQEP angle with the rotor angle
 	if((EST_getState(ctrlHandle->estHandle) == EST_State_Rs) && (USER_MOTOR_TYPE == MOTOR_Type_Pm))
 	{
-		ENC_setElecInitOffset(encHandle[0], (uint32_t)(HAL_getQepPosnMaximum(halHandle) - HAL_getQepPosnCounts(halHandle)),_IQ(0.0));
+		ENC_setElecInitOffset(encHandle[0], (uint32_t)(HAL_getQepPosnMaximum(halHandle) - encHandle[0]->qposcnt),_IQ(0.0));
 	}
 	else if(hallHandle->flag_cap)
 	{
-		ENC_setElecInitOffset(encHandle[0], (uint32_t)(HAL_getQepPosnMaximum(halHandle) - HAL_getQepPosnCounts(halHandle)),hallHandle->elec_initAngle_pu);
+		ENC_setElecInitOffset(encHandle[0], (uint32_t)(HAL_getQepPosnMaximum(halHandle) - encHandle[0]->qposcnt),hallHandle->elec_initAngle_pu);
 	}
 
 	// read the timer 1 value and update the CPU usage module
@@ -638,10 +577,22 @@ interrupt void mainISR(void) {
 } // end of mainISR() function
 
 
+interrupt void tz3ISR(void){
+
+	HAL_writeDrvData(halHandle, &gDrvSpi8301Vars);
+	HAL_readDrvData(halHandle, &gDrvSpi8301Vars);
+
+}
+
+
 void updateIqRef(CTRL_Handle handle) {
+	_iq temp;
 	_iq iq_ref;
 
-	iq_ref = _IQmpy(gMotorVars.IqRef_A,_IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
+	temp = _IQmpy(gMotorVars.IqRef_A,_IQ(1.0/USER_IQ_FULL_SCALE_CURRENT_A));
+	TRAJ_setTargetValue(trajHandle_iq, temp);
+
+	iq_ref = TRAJ_getIntValue(trajHandle_iq);
 
 	// set the speed reference so that the forced angle rotates in the correct direction for startup
 	if (_IQabs(gMotorVars.Speed_krpm) < _IQ(0.01)) {
@@ -677,6 +628,286 @@ void updateCPUusage(void)
 
   return;
 } // end of updateCPUusage() function
+
+void MASS_setParams(volatile MASS_Vars_t *pMassVars)
+{
+	MASS_Vars_t *obj = (MASS_Vars_t*)pMassVars;
+
+	obj->posNowMass_pu = _IQ(0.0); // 转
+	obj->posNowMass_percent = _IQ(0.0);
+
+	obj->pos_m = _IQ(0.0);
+	obj->prevPos_m = _IQ(0.0);
+	obj->deltaPos_m = _IQ(0.0);
+	obj->prevDelta_m = _IQ(0.0);
+	obj->velocity_mps = _IQ(0.0);
+	obj->prevVelocity_mps = _IQ(0.0);
+	obj->deltaVelocity_mps = _IQ(0.0);
+	obj->velocity_mps_max = _IQ(0.0);
+	obj->velocity_mps_flt = _IQ(0.0);
+	obj->accel_mps2 = _IQ(0.0);
+	obj->prevAccel_mps2 = _IQ(0.0);
+	obj->accel_mps2_flt = _IQ(0.0);
+	obj->accel_mps2_avg = _IQ(0.0);
+
+	obj->posStartMass_pu = _IQ(0.0);
+	obj->posStopMass_pu = _IQ(0.0);
+	obj->posDisMass_pu = _IQ(0.0);
+
+	obj->posStartMass_pu_flt = _IQ(0.0);
+	obj->posStopMass_pu_flt = _IQ(0.0);
+	obj->posDisMass_pu_flt = _IQ(0.0);
+
+	obj->posStartGate_pu = _IQ(0.0);
+	obj->posStopGate_pu = _IQ(0.0);
+
+	obj->baseForce_kgf = _IQ(0.0);
+	obj->extUpForce_kgf = _IQ(0.0);
+	obj->extDownForce_kgf = _IQ(0.0);
+
+	obj->segCounter = 0;
+	obj->shakeCounter = 0;
+
+	obj->pos_pu_to_m_sf  = _IQ(USER_MOTOR_DIAMETER*MATH_PI);
+	obj->kgf_to_Nm_sf = _IQ(9.8*USER_REAR_DIAMETER/2.0);
+	obj->sample_time = _IQ(0.001);
+
+	obj->flag_dir = false;
+	obj->flag_prevDir = false;
+	obj->flag_dirChanged = false;
+
+	obj->flag_seg = false; // true:提升  false:下降
+	obj->flag_prevSeg = false;
+	obj->flag_segChanged = false;
+
+	obj->flag_shake = false;
+	obj->flag_noMassMode = true;
+
+	return;
+}
+
+void MASS_reProcess(volatile MASS_Vars_t *pMassVars)
+{
+	MASS_Vars_t *obj = (MASS_Vars_t*)pMassVars;
+
+	if(obj->segCounter == 0)
+	{
+		obj->posStartMass_pu = _IQ(0.0);
+		obj->posStopMass_pu = _IQ(0.0);
+		obj->posStartGate_pu = _IQ(0.0);
+		obj->posStopGate_pu = _IQ(0.0);
+
+		obj->flag_seg = false;
+		obj->flag_prevSeg = false;
+
+		obj->shakeCounter = 0;
+	}
+
+	//------------------------------------------------------------------
+	if(obj->flag_dir != obj->flag_prevDir)
+	{
+		obj->flag_dirChanged = true;
+
+		obj->flag_prevDir = obj->flag_dir;
+	}
+	else
+		obj->flag_dirChanged = false;
+
+
+	//--------------------------up-->down---------------------------------
+	if(!obj->flag_seg)
+	{
+		if((obj->flag_dirChanged)&&(obj->flag_dir))
+		{
+			if((obj->segCounter == 0)&&(obj->posNowMass_pu > _IQ(0.5)))
+			{
+				obj->posStopMass_pu = obj->posNowMass_pu;
+				obj->flag_seg = true;
+			}
+			else if((obj->segCounter >= 2)&&(obj->posNowMass_pu > obj->posStopGate_pu))
+			{
+				obj->posStopMass_pu = obj->posNowMass_pu;
+				obj->flag_seg = true;
+			}
+		}
+	}
+	//--------------------------------down-->up-----------------------------
+	else
+	{
+		if((obj->flag_dirChanged)&&(!obj->flag_dir))
+		{
+			if((obj->segCounter == 1)&&(obj->posNowMass_pu < (obj->posStopMass_pu-_IQ(0.2))))
+			{
+				obj->posStartMass_pu = obj->posNowMass_pu;
+				obj->flag_seg = false;
+			}
+			else if((obj->segCounter >= 2)&&(obj->posNowMass_pu < obj->posStartGate_pu))
+			{
+				obj->posStartMass_pu = obj->posNowMass_pu;
+				obj->flag_seg = false;
+			}
+		}
+	}
+
+	//----------------------------------------------------------------------
+	if(obj->flag_seg != obj->flag_prevSeg)
+	{
+		obj->flag_segChanged = true;
+
+		obj->flag_prevSeg = obj->flag_seg;
+	}
+	else
+		obj->flag_segChanged = false;
+
+	//-------------------------------------------------------------------------
+	if(obj->flag_dirChanged)
+	{
+		if(obj->flag_segChanged)
+		{
+			obj->segCounter++;
+			obj->posStartGate_pu = _IQmpy(obj->posStartMass_pu, _IQ(0.8)) + _IQmpy(obj->posStopMass_pu, _IQ(0.2));
+			obj->posStopGate_pu = _IQmpy(obj->posStartMass_pu, _IQ(0.2)) + _IQmpy(obj->posStopMass_pu, _IQ(0.8));
+
+			if(obj->segCounter>=2)
+				obj->posDisMass_pu = obj->posStopMass_pu - obj->posStartMass_pu;
+		}
+		else if((obj->posNowMass_pu > obj->posStartGate_pu)&&(obj->posNowMass_pu < obj->posStopGate_pu))
+			obj->shakeCounter++;
+
+	}
+
+	//-------------------------------------------------------------------------------------
+	if(obj->segCounter>=2)
+		obj->posNowMass_percent = _IQdiv((obj->posNowMass_pu - obj->posStartMass_pu), obj->posDisMass_pu);
+
+	return;
+}
+
+void MASS_calc(volatile MASS_Vars_t *pMassVars)
+{
+	MASS_Vars_t *obj = (MASS_Vars_t*)pMassVars;
+
+	obj->pos_m = _IQmpy(obj->posNowMass_pu, obj->pos_pu_to_m_sf);
+
+//	if(obj->pos_m > obj->prevPos_m)
+//		obj->deltaPos_m =  obj->pos_m - obj->prevPos_m;
+//	else if(obj->pos_m < obj->prevPos_m)
+//		obj->deltaPos_m =  -obj->pos_m + obj->prevPos_m;
+//	else
+//		obj->deltaPos_m =  _IQ(0.0);
+
+	obj->deltaPos_m =  -obj->pos_m + obj->prevPos_m;
+
+	obj->velocity_mps = _IQdiv(obj->deltaPos_m, obj->sample_time);
+
+	if(_IQabs(obj->velocity_mps) > obj->velocity_mps_max)
+		obj->velocity_mps_max = _IQabs(obj->velocity_mps);
+
+	obj->velocity_mps_flt = _IQmpy(obj->velocity_mps_flt, _IQ(0.9)) + _IQmpy(obj->velocity_mps, _IQ(0.1));
+
+	obj->deltaVelocity_mps = obj->velocity_mps - obj->prevVelocity_mps;
+
+	obj->accel_mps2 = _IQdiv(obj->deltaVelocity_mps, obj->sample_time);
+
+	obj->accel_mps2_flt = _IQmpy(obj->accel_mps2_flt, _IQ(0.9)) + _IQmpy(obj->accel_mps2, _IQ(0.1));
+
+	obj->accel_mps2_avg = _IQmpy(obj->prevAccel_mps2, _IQ(0.33333333)) +_IQmpy(obj->accel_mps2, _IQ(0.66666667));
+
+	obj->prevPos_m = obj->pos_m;
+	obj->prevVelocity_mps = obj->velocity_mps;
+	obj->prevAccel_mps2 = obj->accel_mps2;
+
+	return;
+}
+
+void MASS_refGive(volatile MASS_Vars_t *pMassVars)
+{
+	MASS_Vars_t *obj = (MASS_Vars_t*)pMassVars;
+
+	if(obj->flag_noMassMode)
+	{
+		if(obj->segCounter>=2)
+		{
+			_iq temp;
+
+			if(!obj->flag_seg)
+			{
+				if(obj->posNowMass_percent<_IQ(0.9))
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + obj->extUpForce_kgf, obj->kgf_to_Nm_sf);
+				else if(obj->posNowMass_percent<_IQ(1.0))
+				{
+					temp = _IQ(1.0) - _IQdiv(obj->posNowMass_percent - _IQ(0.9), _IQ(0.1));
+					temp = _IQmpy(obj->extUpForce_kgf, temp);
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + temp, obj->kgf_to_Nm_sf);
+				}
+				else
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf, obj->kgf_to_Nm_sf);
+			}
+			else
+			{
+				if(obj->posNowMass_percent<_IQ(0.9))
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + obj->extDownForce_kgf, obj->kgf_to_Nm_sf);
+				else if(obj->posNowMass_percent<_IQ(1.0))
+				{
+					temp = _IQ(1.0) - _IQdiv(obj->posNowMass_percent - _IQ(0.9), _IQ(0.1));
+					temp = _IQmpy(obj->extDownForce_kgf, temp);
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + temp, obj->kgf_to_Nm_sf);
+				}
+				else
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf, obj->kgf_to_Nm_sf);
+			}
+		}
+		else
+		{
+			gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf, obj->kgf_to_Nm_sf);
+		}
+	}
+	else
+	{
+		if(obj->segCounter>=2)
+		{
+			_iq temp, temp1;
+
+//			temp1 = _IQmpy(obj->baseForce_kgf, obj->accel_mps2);
+//			temp1 = _IQmpy(obj->baseForce_kgf, obj->accel_mps2_flt);
+			temp1 = _IQmpy(obj->baseForce_kgf, obj->accel_mps2_avg);
+			temp1 = _IQdiv(temp1, _IQ(9.8));
+
+			if(!obj->flag_seg)
+			{
+				if(obj->posNowMass_percent<_IQ(0.9))
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + obj->extUpForce_kgf - temp1, obj->kgf_to_Nm_sf);
+				else if(obj->posNowMass_percent<_IQ(1.0))
+				{
+					temp = _IQ(1.0) - _IQdiv(obj->posNowMass_percent - _IQ(0.9), _IQ(0.1));
+					temp = _IQmpy(obj->extUpForce_kgf, temp);
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + temp - temp1, obj->kgf_to_Nm_sf);
+				}
+				else
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf - temp1, obj->kgf_to_Nm_sf);
+			}
+			else
+			{
+				if(obj->posNowMass_percent<_IQ(0.9))
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + obj->extDownForce_kgf - temp1, obj->kgf_to_Nm_sf);
+				else if(obj->posNowMass_percent<_IQ(1.0))
+				{
+					temp = _IQ(1.0) - _IQdiv(obj->posNowMass_percent - _IQ(0.9), _IQ(0.1));
+					temp = _IQmpy(obj->extDownForce_kgf, temp);
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf + temp - temp1, obj->kgf_to_Nm_sf);
+				}
+				else
+					gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf - temp1, obj->kgf_to_Nm_sf);
+			}
+		}
+		else
+		{
+			gMotorVars.TorqueRef_Nm = _IQmpy(obj->baseForce_kgf, obj->kgf_to_Nm_sf);
+		}
+	}
+
+	return;
+}
 
 //@} //defgroup
 // end of file

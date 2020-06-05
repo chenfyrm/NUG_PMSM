@@ -287,6 +287,15 @@ static inline void HAL_acqAdcInt(HAL_Handle handle,const ADC_IntNumber_e intNumb
 } // end of HAL_acqAdcInt() function
 
 
+static inline void HAL_acqPwmTzInt(HAL_Handle handle)
+{
+  HAL_Obj *obj = (HAL_Obj *)handle;
+
+
+  return;
+} // end of HAL_acqAdcInt() function
+
+
 //! \brief     Acknowledges an interrupt from the PWM so that another PWM interrupt can
 //!            happen again.
 //! \param[in] handle     The hardware abstraction layer (HAL) handle
@@ -330,6 +339,7 @@ static inline void HAL_acqTimer0Int(HAL_Handle handle)
 } // end of HAL_acqTimer0Int() function
 
 
+
 //! \brief      Executes calibration routines
 //! \details    Values for offset and gain are programmed into OTP memory at
 //!             the TI factory.  This calls and internal function that programs
@@ -370,6 +380,7 @@ static inline void HAL_disablePwm(HAL_Handle handle)
 //! \param[in]  handle  The hardware abstraction layer (HAL) handle
 extern void HAL_enableAdcInts(HAL_Handle handle);
 
+extern void HAL_enablePwmTzInts(HAL_Handle handle);
 
 //! \brief      Enables the debug interrupt
 //! \details    The debug interrupt is used for the real-time debugger.  It is

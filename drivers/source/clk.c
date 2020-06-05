@@ -209,6 +209,36 @@ void CLK_disableEqep2Clock(CLK_Handle clkHandle)
 } // end of CLK_disableEqep2Clock() function
 
 
+void CLK_disableEcap2Clock(CLK_Handle clkHandle)
+{
+  CLK_Obj *clk = (CLK_Obj *)clkHandle;
+
+
+  ENABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  // set the bits
+  clk->PCLKCR1 &= (~CLK_PCLKCR1_ECAP2ENCLK_BITS);
+
+  DISABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  return;
+} // end of CLK_disableEcap2Clock() function
+
+void CLK_disableEcap3Clock(CLK_Handle clkHandle)
+{
+  CLK_Obj *clk = (CLK_Obj *)clkHandle;
+
+
+  ENABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  // set the bits
+  clk->PCLKCR1 &= (~CLK_PCLKCR1_ECAP3ENCLK_BITS);
+
+  DISABLE_PROTECTED_REGISTER_WRITE_MODE;
+
+  return;
+} // end of CLK_disableEcap3Clock() function
+
 void CLK_disableGpioInputClock(CLK_Handle clkHandle)
 {
   CLK_Obj *clk = (CLK_Obj *)clkHandle;

@@ -265,7 +265,10 @@ typedef enum
 //  SCI_BaudRate_19_2_kBaud = 97,      //!< Denotes 19.2 kBaud
 //  SCI_BaudRate_57_6_kBaud = 33,      //!< Denotes 57.6 kBaud
 //  SCI_BaudRate_115_2_kBaud = 15      //!< Denotes 115.2 kBaud
-	SCI_BaudRate_9_6_kBaud = 292      //!< Denotes 9.6 kBaud   90MHz  22.5MHz
+	SCI_BaudRate_9_6_kBaud = 292,      //!< Denotes 9.6 kBaud   90MHz  22.5MHz
+	SCI_BaudRate_19_2_kBaud = 145,      //!< Denotes 19.2 kBaud
+	SCI_BaudRate_57_6_kBaud = 48,      //!< Denotes 57.6 kBaud
+	SCI_BaudRate_115_2_kBaud = 23      //!< Denotes 115.2 kBaud
 } SCI_BaudRate_e;
 
 

@@ -45,6 +45,7 @@ typedef struct _HALL_Obj_
 
 	// output
 	_iq	elec_initAngle_pu;
+	_iq elec_speed_kRPM;
 
 	uint16_t dir;
 	_iq PwmDuty;
@@ -86,29 +87,8 @@ inline void HALL_setIs_ref_pu(HALL_Handle handle, const _iq IsRef_pu)
 	return;
 }
 
-//inline void HALL_readData(HALL_Handle handle, HAL_Handle halHandle)
-//{
-//	uint16_t pHall_GpioData;
-//
-//	pHall_GpioData = (HAL_readGpio(halHandle,GPIO_Number_11) & 0x1)<<2;
-//	pHall_GpioData += (HAL_readGpio(halHandle,GPIO_Number_15) & 0x1)<<1;
-//	pHall_GpioData += (HAL_readGpio(halHandle,GPIO_Number_9) & 0x1)<<0;
-//
-//	hallHandle->hallSta = pHall_GpioData&(7<<0);
-//
-//	hallHandle->flag_cap = CAP_getInt(halHandle->capHandle[0],CAP_Int_Type_CEVT1);
-//
-//	if(hallHandle->flag_cap)
-//	{
-//
-//		hallHandle->tsCounter = halHandle->capHandle[0]->TSCTR;
-//		hallHandle->capCounter = CAP_getCap1(halHandle->capHandle[0]);
-//
-//		CAP_clearInt(halHandle->capHandle[0],CAP_Int_Type_CEVT1);
-//	}
-//}
-
 void HALL_checkState(HALL_Handle handle, HAL_Handle halHandle);
+void HALL_calcElecSpd(HALL_Handle handle);
 
 extern void HALL_Ctrl_run(HALL_Handle handle, CTRL_Handle ctrlHandle, const HAL_AdcData_t *pAdcData, HAL_PwmData_t *pPwmData);
 

@@ -18,6 +18,10 @@ extern "C" {
 #endif
 
 // **************************************************************************
+// the defines
+
+
+// **************************************************************************
 // the typedefs
 
 typedef struct _ENC_Obj_
@@ -28,30 +32,22 @@ typedef struct _ENC_Obj_
 
 	// output
 	_iq elec_angle_pu;
-	_iq elec_trqAngle_pu;
-
-	_iq mech_angle_pu;
-	_iq mech_prevAngle_pu;
-	_iq mech_deltaAngle_pu;
-	_iq speed_pu;
-
+	_iq elec_angle_pu_flt;
 	_iq mech_pos_pu;
-
-	int16_t mech_rev_cnt;
-
-	bool flag_outOfGuage;
+	_iq mech_speed_kRPM;
 
 	// parameter
-	uint16_t num_pole_pairs;
 	uint16_t num_enc_slots;		//!< number of encoder slots
+	uint16_t num_pole_pairs;
 	_iq mech_angle_gain;
+	_iq sample_time;
 
 	// static
 	uint32_t elec_init_offset;     //!< encoder zero offset in counts
 	_iq	elec_init_angle;
 
 	uint32_t mech_init_offset;
-	_iq mech_init_angle;
+	_iq mech_prevPos_pu;
 } ENC_Obj,*ENC_Handle;
 
 
@@ -64,8 +60,9 @@ extern ENC_Handle encHandle[2];
 
 ENC_Handle ENC_init(void *pMemory, const size_t numBytes);
 void ENC_setParams(ENC_Handle handle, uint16_t numSlots, uint16_t polePairs);
-void ENC_calcCombElecAngle(ENC_Handle handle);
-void ENC_calcMechAngle(ENC_Handle handle);
+void ENC_calcElecAngle(ENC_Handle handle);
+void ENC_calcMechPos(ENC_Handle handle);
+void ENC_calcMechSpd(ENC_Handle handle);
 void ENC_run(ENC_Handle handle);
 
 inline _iq ENC_getElecAngle_pu(ENC_Handle handle)
@@ -73,16 +70,10 @@ inline _iq ENC_getElecAngle_pu(ENC_Handle handle)
 	return (handle->elec_angle_pu);
 }
 
-////! \brief Sets the value for the encoder object zero offset
-////! \param[in] encHandle                        Handle to the ENC object
-////! \param[in] zeroOffset                       New zero offset
-//inline void ENC_setZeroOffset(ENC_Handle encHandle, uint32_t zeroOffset) {
-//	ENC_Obj *enc = (ENC_Obj *)encHandle;
-//
-//	enc->enc_zero_offset = zeroOffset;
-//
-//	return;
-//}
+inline _iq ENC_getMechPos_pu(ENC_Handle handle)
+{
+	return (handle->mech_pos_pu);
+}
 
 //! \brief Sets the value for the encoder object zero offset
 //! \param[in] encHandle                        Handle to the ENC object

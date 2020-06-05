@@ -85,6 +85,8 @@ _iq testVar = _IQ(1.0);
 _iq estAngle_pu = _IQ(0.0);
 _iq deltaAngle_pu = _IQ(0.0);
 
+_iq gAngle_pu = _IQ(0.0);
+
 // **************************************************************************
 // the function prototypes
 

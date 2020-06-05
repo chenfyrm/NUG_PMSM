@@ -128,9 +128,6 @@ extern "C" {
 //#define   I_A_offset    (0.9939797521)
 //#define   I_B_offset    (1.014363647)
 //#define   I_C_offset    (1.005615234)
-//#define   I_A_offset    (0.9983780384)
-//#define   I_B_offset    (0.9951030612)
-//#define   I_C_offset    (0.9840172529)
 #define   I_A_offset    (1.750098526)
 #define   I_B_offset    (1.749509513)
 #define   I_C_offset    (1.748407722)
@@ -143,9 +140,6 @@ extern "C" {
 //#define   V_A_offset    (0.5020679235)
 //#define   V_B_offset    (0.4977650046)
 //#define   V_C_offset    (0.4986107945)
-//#define   V_A_offset    (0.4900524616)
-//#define   V_B_offset    (0.4899454117)
-//#define   V_C_offset    (0.488089323)
 #define   V_A_offset    (0.4914754629)
 #define   V_B_offset    (0.4905981421)
 #define   V_C_offset    (0.4945839643)
@@ -382,10 +376,10 @@ extern "C" {
 #define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
 #define USER_MOTOR_RES_EST_CURRENT      (5.0)			// A - suggested to set to 10% or 20% of rated motor current
 #define USER_MOTOR_IND_EST_CURRENT      (-5.0)
-#define USER_MOTOR_MAX_CURRENT          (40.0)
+#define USER_MOTOR_MAX_CURRENT          (40.0)			// A
 #define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)			// Hz -
 
-#define USER_MOTOR_ENCODER_LINES		(600*7.5)
+#define USER_MOTOR_ENCODER_LINES		(600*7.5)		//
 #define	USER_MOTOR_MAX_SPEED_KRPM		(0.4)
 #define	USER_SYSTEM_INERTIA				(0.02)
 #define	USER_SYSTEM_FRICTION			(0.01)
@@ -398,6 +392,9 @@ extern "C" {
 #define USER_MOTOR_VOLT_MAX				(32.0)			// Volt - suggested to set to 100% of rated motor voltage
 
 #define USER_REAR_ENCODER_LINES			(64)
+
+#define USER_MOTOR_DIAMETER				(0.23484)		// m
+#define USER_REAR_DIAMETER				(0.1)  			// m
 
 #endif
 

@@ -499,6 +499,20 @@ void HAL_enableAdcInts(HAL_Handle handle)
 } // end of HAL_enableAdcInts() function
 
 
+void HAL_enablePwmTzInts(HAL_Handle handle)
+{
+	HAL_Obj *obj = (HAL_Obj *)handle;
+
+	PIE_enablePwmTzInt(obj->pieHandle, PWM_Number_1);
+
+	PWM_enableTripZoneInt(obj->pwmHandle[0], PWM_TripZoneFlag_OST);
+
+	CPU_enableInt(obj->cpuHandle,CPU_IntNumber_2);
+
+	return;
+}
+
+
 void HAL_enableDebugInt(HAL_Handle handle)
 {
   HAL_Obj *obj = (HAL_Obj *)handle;
@@ -581,6 +595,7 @@ void HAL_setupFaults(HAL_Handle handle)
   // These trips need to be repeated for EPWM1 ,2 & 3
   for(cnt=0;cnt<3;cnt++)
     {
+	  // TZSEL
       PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_CycleByCycle_TZ2_NOT);
 
       PWM_enableTripZoneSrc(obj->pwmHandle[cnt],PWM_TripZoneSrc_OneShot_TZ3_NOT);
@@ -589,6 +604,7 @@ void HAL_setupFaults(HAL_Handle handle)
       // TZA events can force EPWMxA
       // TZB events can force EPWMxB
 
+      // TZCTL
       PWM_setTripZoneState_TZA(obj->pwmHandle[cnt],PWM_TripZoneState_EPWM_Low);
       PWM_setTripZoneState_TZB(obj->pwmHandle[cnt],PWM_TripZoneState_EPWM_Low);
     }
@@ -1388,8 +1404,8 @@ void HAL_setupPeripheralClks(HAL_Handle handle)
   CLK_enableTbClockSync(obj->clkHandle);
 
   CLK_enableEcap1Clock(obj->clkHandle);
-  CLK_enableEcap2Clock(obj->clkHandle);
-  CLK_enableEcap3Clock(obj->clkHandle);
+  CLK_disableEcap2Clock(obj->clkHandle);
+  CLK_disableEcap3Clock(obj->clkHandle);
 
   CLK_enableEqep1Clock(obj->clkHandle);
   CLK_enableEqep2Clock(obj->clkHandle);
@@ -1399,9 +1415,9 @@ void HAL_setupPeripheralClks(HAL_Handle handle)
 
 
   //PCLKCR3
-  CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_1);
-  CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_2);
-  CLK_enableCompClock(obj->clkHandle,CLK_CompNumber_3);
+  CLK_disableCompClock(obj->clkHandle,CLK_CompNumber_1);
+  CLK_disableCompClock(obj->clkHandle,CLK_CompNumber_2);
+  CLK_disableCompClock(obj->clkHandle,CLK_CompNumber_3);
 
   CLK_disableClaClock(obj->clkHandle);
 
@@ -1597,14 +1613,14 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
   }
 
   // setup the QUPRD
-  if(qep==HAL_Qep_QEP1)
-  {
-	  QEP_set_unit_period(obj->qepHandle[qep], 900000); // sysclkout 90MHz 10ms calculated once 100Hz
-  }
-  else if(qep==HAL_Qep_QEP2)
-  {
-	  QEP_set_unit_period(obj->qepHandle[qep], 9000000); // sysclkout 90MHz 100ms calculated once 10Hz
-  }
+//  if(qep==HAL_Qep_QEP1)
+//  {
+//	  QEP_set_unit_period(obj->qepHandle[qep], 900000); // sysclkout 90MHz 10ms calculated once 100Hz
+//  }
+//  else if(qep==HAL_Qep_QEP2)
+//  {
+//	  QEP_set_unit_period(obj->qepHandle[qep], 9000000); // sysclkout 90MHz 100ms calculated once 10Hz
+//  }
 
   // setup the QDECCTL register
   QEP_set_QEP_source(obj->qepHandle[qep], QEP_Qsrc_Quad_Count_Mode);
@@ -1624,27 +1640,27 @@ void HAL_setupQEP(HAL_Handle handle,HAL_QepSelect_e qep)
   QEP_set_index_event_init(obj->qepHandle[qep], QEPCTL_Iei_Nothing);
   QEP_set_index_event_latch(obj->qepHandle[qep], QEPCTL_Iel_Rising_Edge);
   QEP_set_soft_init(obj->qepHandle[qep], QEPCTL_Swi_Nothing);
-//  QEP_disable_unit_timer(obj->qepHandle[qep]);
-  QEP_enable_unit_timer(obj->qepHandle[qep]);
-  QEP_set_capture_latch_mode(obj->qepHandle[qep], QEPCTL_Qclm_Latch_on_Unit_Timeout);
+  QEP_disable_unit_timer(obj->qepHandle[qep]);
+//  QEP_enable_unit_timer(obj->qepHandle[qep]);
+//  QEP_set_capture_latch_mode(obj->qepHandle[qep], QEPCTL_Qclm_Latch_on_Unit_Timeout);
   QEP_disable_watchdog(obj->qepHandle[qep]);
 
   // setup the QPOSCTL register
   QEP_disable_posn_compare(obj->qepHandle[qep]);
 
   // setup the QCAPCTL register
-//  QEP_disable_capture(obj->qepHandle[qep]);
-  if(qep==HAL_Qep_QEP1)
-  {
-	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_16_Prescale); // UPEVNT 1/16 QCLK
-	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_64); // CAPCLK 90/64 MHz
-  }
-  else if(qep==HAL_Qep_QEP2)
-  {
-	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_4_Prescale); // UPEVNT 1/4 QCLK
-	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_128); // CAPCLK 90/128 MHz
-  }
-  QEP_enable_capture(obj->qepHandle[qep]);
+  QEP_disable_capture(obj->qepHandle[qep]);
+//  if(qep==HAL_Qep_QEP1)
+//  {
+//	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_16_Prescale); // UPEVNT 1/16 QCLK
+//	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_64); // CAPCLK 90/64 MHz
+//  }
+//  else if(qep==HAL_Qep_QEP2)
+//  {
+//	  QEP_set_unit_posn_prescale(obj->qepHandle[qep],QCAPCTL_Upps_Div_4_Prescale); // UPEVNT 1/4 QCLK
+//	  QEP_set_capture_prescale(obj->qepHandle[qep],QCAPCTL_Ccps_Capture_Div_128); // CAPCLK 90/128 MHz
+//  }
+//  QEP_enable_capture(obj->qepHandle[qep]);
 
   // renable the position counter
   QEP_enable_counter(obj->qepHandle[qep]);
